@@ -1,0 +1,130 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="no-js">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Operational — Company management</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;1,9..40,400&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/home.css' %}">
+</head>
+<body>
+  <header class="page-header">
+    <div class="page-header__inner">
+      <a href="/" class="page-header__logo">Operational</a>
+      <nav class="page-header__nav">
+        <a href="/admin/">Log in</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="hero-title">
+      <svg class="hero__blob" viewBox="0 0 400 400" aria-hidden="true">
+        <path d="M 200,40 C 280,30 360,80 370,160 C 378,230 340,300 260,350 C 180,395 100,380 50,300 C 10,230 30,140 100,80 C 150,35 200,45 200,40 Z" />
+      </svg>
+      <div class="hero__inner">
+        <h1 id="hero-title" class="hero__title">Operational</h1>
+        <p class="hero__tagline">
+          Advanced company management: projects and activities, financial needs, personnel, and knowledge — in one place.
+        </p>
+        <a href="/admin/" class="hero__cta">Get started</a>
+      </div>
+    </section>
+
+    <!-- Wave separator: hero → features (top and bottom wavy, different paths) -->
+    <svg class="section-sep section-sep--wave" viewBox="0 0 1440 140" preserveAspectRatio="none" aria-hidden="true">
+      <path fill="currentColor" d="M 0 30 Q 240 0 480 30 Q 720 60 960 30 Q 1200 0 1440 30 L 1440 110 Q 1200 140 720 110 Q 240 80 0 110 Z" />
+    </svg>
+
+    <section class="features" aria-labelledby="features-title">
+      <div class="features__inner">
+        <h2 id="features-title" class="features__title">What you can manage</h2>
+        <ul class="features__grid">
+          <li>
+            <article class="card-morph card-morph--lg" data-shape="circle">
+              <svg class="card-morph__svg" viewBox="0 0 380 220" aria-hidden="true">
+                <path class="card-morph__path" d="M 292,110 A 102,102 0 0 1 88,110 A 102,102 0 0 1 292,110 Z" />
+              </svg>
+              <div class="card-morph__content">
+                <svg class="card-morph__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M 3 9 l9-5 9 5 v10l-9 5-9-5z" />
+                  <path d="M 3 9 l9 5 9-5 M 12 14 v10" />
+                </svg>
+                <h3 class="card-morph__title">Projects & activities</h3>
+                <p class="card-morph__desc">Plan, track, and deliver work across teams and timelines.</p>
+              </div>
+            </article>
+          </li>
+          <li>
+            <article class="card-morph card-morph--md" data-shape="square">
+              <svg class="card-morph__svg" viewBox="0 0 320 200" aria-hidden="true">
+                <path class="card-morph__path" d="M 10,10 L 310,10 L 310,190 L 10,190 Z" />
+              </svg>
+              <div class="card-morph__content">
+                <svg class="card-morph__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M 12 2 v20 M 17 5 H 9.5 a 3.5 3.5 0 0 0 0 7 h5 a 3.5 3.5 0 0 1 0 7 H 6" />
+                </svg>
+                <h3 class="card-morph__title">Financial needs</h3>
+                <p class="card-morph__desc">Budgets, forecasts, and reporting in one controlled place.</p>
+              </div>
+            </article>
+          </li>
+          <li>
+            <article class="card-morph card-morph--md" data-shape="triangle">
+              <svg class="card-morph__svg" viewBox="0 0 340 210" aria-hidden="true">
+                <path class="card-morph__path" d="M 170,12 L 328,198 L 12,198 Z" />
+              </svg>
+              <div class="card-morph__content">
+                <svg class="card-morph__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M 3 21 v-2 a 4 4 0 0 1 4-4 h4 a 4 4 0 0 1 4 4 v2" />
+                  <path d="M 16 11 l4-4 4 4 M 20 11 v10" />
+                </svg>
+                <h3 class="card-morph__title">Personnel</h3>
+                <p class="card-morph__desc">Roles, capacity, and people data where you need it.</p>
+              </div>
+            </article>
+          </li>
+          <li>
+            <article class="card-morph card-morph--xl" data-shape="blob">
+              <svg class="card-morph__svg" viewBox="0 0 400 240" aria-hidden="true">
+                <path class="card-morph__path" d="M 200,19.2 C 272,12 368,48 368,103.2 C 384,153.6 356,201.6 304,223.2 C 240,242.4 156,237.6 100,204 C 24,177.6 24,117.6 28,62.4 C 32,16.8 152,16.8 200,19.2 Z" />
+              </svg>
+              <div class="card-morph__content">
+                <svg class="card-morph__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M 4 19.5 A 2.5 2.5 0 0 1 6.5 17 H 20" />
+                  <path d="M 6.5 2 H 20 v20 H 6.5 A 2.5 2.5 0 0 1 4 19.5 v-15 A 2.5 2.5 0 0 1 6.5 2 z" />
+                  <path d="M 8 7 h8 M 8 11 h8" />
+                </svg>
+                <h3 class="card-morph__title">Knowledge</h3>
+                <p class="card-morph__desc">Docs, decisions, and context that stay findable.</p>
+              </div>
+            </article>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Diagonal separator: features → footer -->
+    <svg class="section-sep section-sep--footer" viewBox="0 0 1440 60" preserveAspectRatio="none" aria-hidden="true">
+      <path fill="currentColor" d="M 0 60 L 0 0 L 1440 60 Z" />
+    </svg>
+
+  <footer class="page-footer">
+    <div class="page-footer__inner">
+      <span class="page-footer__brand">Operational</span>
+      <div class="page-footer__links">
+        <a href="/admin/">Admin</a>
+      </div>
+    </div>
+  </footer>
+  </main>
+
+  <script src="https://unpkg.com/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script src="https://unpkg.com/flubber@0.4.2/build/flubber.min.js"></script>
+  <script src="{% static 'js/home.js' %}"></script>
+</body>
+</html>
