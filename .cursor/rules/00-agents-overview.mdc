@@ -1,0 +1,40 @@
+---
+description: Agent roles, docs, and MCP resources for the Operational project
+alwaysApply: true
+---
+
+# Operational Project — AI Agent Roles
+
+This Django 6.0 project uses multi-tenancy (django-tenants), HTMX, and Unfold admin. Agents apply by task and file context.
+
+## Agent Roles
+
+| Role | When It Applies | Skill |
+|------|-----------------|-------|
+| **Software Analyst** | Analysis, requirements, scope, edge cases | `software-analyst` |
+| **Planner** | Breaking work into execution plans | `planner` |
+| **Django Developer** | Python, models, views, URLs, migrations | `django-developer` |
+| **Frontend Developer** | HTML, HTMX, CSS, JavaScript | `frontend-developer` |
+
+## Project Stack
+
+- **Backend**: Django 6.0, django-tenants, django-unfold, PostgreSQL
+- **Frontend**: HTML, HTMX (hypermedia), vanilla JS, CSS
+- **Templates**: `templates/` (base), `apps/*/templates/` (per-app)
+
+## Docs & MCP
+
+Use Context7 and official docs when relevant:
+
+| Resource | Use For | Context7 ID / URL |
+|----------|---------|-------------------|
+| Django | Models, views, security, middleware | `/websites/djangoproject_en_6_0` |
+| HTMX | hx-get, hx-post, hx-swap, hx-target | `/bigskysoftware/htmx` |
+| django-tenants | Schemas, TenantModel, SHARED_APPS | `/websites/django-tenants_readthedocs_io_en` |
+| Django HTMX Patterns | Django + HTMX patterns | `/spookylukey/django-htmx-patterns` |
+
+**MCP tools**: `mcp_context7_query-docs`, `mcp_context7_resolve-library-id`
+
+## Conventions
+
+- **Homepage changes:** When editing the landing page (`templates/index.html`, `static/css/home.css`, `static/js/home.js`), update [docs/plans/homepage_design.md](docs/plans/homepage_design.md) in the same change set. See skill `homepage-docs`.
