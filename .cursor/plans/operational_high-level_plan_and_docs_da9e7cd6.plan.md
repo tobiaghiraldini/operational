@@ -51,7 +51,7 @@ Below is a concise feature set per module for you to integrate with your own tho
 - **Goals and outcomes:** Define goals (quarterly/yearly), outcomes, success criteria; link outcomes to products/projects.
 - **Plans and timelines:** Create plans (e.g. Q1 plan) with time bounds; attach to goals; optional Gantt-style or timeline view.
 - **Dependencies and risks:** Mark dependencies between plans or outcomes; simple risk/blocker flags.
-- **Dashboard:** Overview of active plans, progress, and next actions (could feed from Tasks).
+- **Dashboard:** Overview of active plans, progress, and next actions (could feed from Tasks and deadlines).
 
 ### Products — “Projects or other types of products”
 

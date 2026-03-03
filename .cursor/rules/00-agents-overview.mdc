@@ -38,3 +38,5 @@ Use Context7 and official docs when relevant:
 ## Conventions
 
 - **Homepage changes:** When editing the landing page (`templates/index.html`, `static/css/home.css`, `static/js/home.js`), update [docs/plans/homepage_design.md](docs/plans/homepage_design.md) in the same change set. See skill `homepage-docs`.
+
+- **One class or function per file:** when building features, keep functions, data transformation, everything that makes sense to be reused in its own file. good for code reuse, testing and finding stuff.

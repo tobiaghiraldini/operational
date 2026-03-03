@@ -33,18 +33,23 @@ ALLOWED_HOSTS = []
 
 SHARED_APPS = [
     "unfold",  # before django.contrib.admin
-    "unfold.contrib.filters",  # optional, if special filters are needed
-    "unfold.contrib.forms",  # optional, if special form elements are needed
-    "unfold.contrib.inlines",  # optional, if special inlines are needed
-    "unfold.contrib.import_export",  # optional, if django-import-export package is used
-    "unfold.contrib.guardian",  # optional, if django-guardian package is used
-    "unfold.contrib.simple_history",  # optional, if django-simple-history package is used
-    "unfold.contrib.location_field",  # optional, if django-location-field package is used
-    "unfold.contrib.constance",  # optional, if django-constance package is used
+    "unfold.contrib.filters",
+    "unfold.contrib.forms",
+    "unfold.contrib.inlines",
+    "unfold.contrib.import_export",
+    "unfold.contrib.guardian",
+    "unfold.contrib.simple_history",
+    "unfold.contrib.location_field",
+    "unfold.contrib.constance",
     "django.contrib.admin",
     "django.contrib.auth",
-    "django_tenants",  # mandatory
-    "apps.customers",  # you must list the app where your tenant model resides in
+    "django_tenants",
+    "apps.customers",
+    "apps.subscriptions",
+    "apps.core",
+    "apps.ai",
+    "apps.api",
+    "apps.integrations",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
@@ -53,6 +58,19 @@ SHARED_APPS = [
 
 TENANT_APPS = [
     "apps.projects",
+    "apps.services",
+    "apps.dashboard",
+    "apps.plans",
+    "apps.milestones",
+    "apps.products",
+    "apps.systems",
+    "apps.parts",
+    "apps.topics",
+    "apps.knowledge",
+    "apps.tasks",
+    "apps.deadlines",
+    "apps.money",
+    "apps.accounting",
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [
