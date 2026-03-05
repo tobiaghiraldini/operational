@@ -57,7 +57,6 @@ SHARED_APPS = [
 ]
 
 TENANT_APPS = [
-    "apps.projects",
     "apps.services",
     "apps.dashboard",
     "apps.plans",

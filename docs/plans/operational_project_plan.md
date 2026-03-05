@@ -75,9 +75,9 @@ Operational is split into **foundation** (tenancy and access), **platform** (cro
 |--------|----------------|----------|
 | **Plan** | Improvisation kills outcomes; plans are made of milestones (and more) | `plan_module.md` |
 | **Milestone** | Goals with dates, details, linked tasks and other info; building blocks of plans | `milestone_module.md` |
-| **Products** | Projects or product types; made of plans, milestones, systems, parts; status live/dev/testing; API keys and sensitive data traced safely | `products_module.md` |
-| **Systems** | Reusable systems (infra, auth, observability, API client, MCP, etc.); made of parts | `systems_module.md` |
-| **Parts** | Tokens, accounts, API keys traced and acknowledged; belong to systems/products; deadlines, expirations, rotations | `parts_module.md` |
+| **Products** | Projects or product types; made of plans, milestones, systems, parts, API keys, credentials; status live/dev/testing; sensitive data traced safely | `products_module.md` |
+| **Systems** | Reusable systems (infra, auth, observability, API client, MCP, etc.); made of parts, API keys, credentials | `systems_module.md` |
+| **Parts** | Part (tokens, accounts, licenses, other) + first-class **ApiKey** and **Credential**; belong to systems/products; deadlines, expirations, rotations (see [operational_use_cases_vs_apps.md](operational_use_cases_vs_apps.md)) | `parts_module.md` |
 | **Topics** | Main concepts that tag knowledge, products, parts, systems (and more) | `topics_module.md` |
 | **Knowledge** | No lost knowledge; node graph (React Flow) and other views; what things are made of and how they connect | `knowledge_module.md` |
 | **Tasks** | Get work done and organized | `tasks_module.md` |
@@ -417,12 +417,12 @@ Below expands each module with concrete features and definitions. **Decided** ca
 - **Product types:** Project, product, service, internal initiative, or other; configurable fields or tags. All tenant-scoped.
 - **Status (from requirements):** Products have a lifecycle status: **live**, **dev**, **testing** (and optionally idea, archived). Filters and dashboards use this to show “what’s in production” vs “what we’re building.”
 - **Composition:** Products are **made of** plans, milestones, systems, and parts. Link to **many** plans and milestones, to systems (e.g. “runs on”), and to parts (accounts, keys, tokens). Generic relations on Products (and others TBD) allow unexpected or future relations without schema changes.
-- **API keys and sensitive information:** Products can have API keys and other sensitive data that must be **traced safely** and **tracked** for deadlines, due dates, expirations, and rotations. These are modeled as **Parts** (or linked to Parts) so that one place (Parts + Deadlines) handles storage, masking, expiry, and rotation reminders. Products surface “which parts (keys, secrets) does this product use?” and “what’s expiring or due for rotation?”
+- **API keys and sensitive information:** Products can have API keys and other sensitive data that must be **traced safely** and **tracked** for deadlines, due dates, expirations, and rotations. These are modeled as first-class **ApiKey** and **Credential** (plus **Part** for tokens, accounts, licenses, other); **Deadlines** link to any of them via a generic relation. Products surface “which parts (keys, secrets) does this product use?” and “what’s expiring or due for rotation?”
 - **List and filters:** By type, status (live/dev/testing), owner, topic; tenant-scoped.
 
-**Definition:** A **product** is a deliverable or initiative with explicit status (live/dev/testing), many plans and milestones, systems and parts, and safe tracing of credentials and expirations via Parts and Deadlines.
+**Definition:** A **product** is a deliverable or initiative with explicit status (live/dev/testing), many plans and milestones, systems, parts, API keys, and credentials, and safe tracing via Parts, ApiKey, Credential, and Deadlines.
 
-**Decided:** Many plans per product. Generic relations on selected models. Sensitive data and keys live in Parts; Products link to them and benefit from unified deadlines/expirations/rotations.
+**Decided:** Many plans per product. ApiKey and Credential are first-class in the parts app; Part remains for Token, Account, License, Other. Products link to them and benefit from unified "Parts & keys" view and deadlines/expirations/rotations. See [operational_use_cases_vs_apps.md](operational_use_cases_vs_apps.md).
 
 ---
 
@@ -430,23 +430,26 @@ Below expands each module with concrete features and definitions. **Decided** ca
 
 - **System registry:** Register systems with name, type, owner, environment (prod/staging), scope, topic.
 - **System types (from requirements):** Infrastructure, multi-tenant system, authentication system, permissions system, background tasks system, observability system, API client system, MCP server system. These can be **predefined type choices** when creating/editing a system.
-- **Made of parts:** Systems are made of **parts** (tokens, accounts, keys used by that system). List and manage parts per system.
+- **Made of parts, API keys, and credentials:** Systems are made of **parts** (tokens, accounts, licenses, other), **API keys**, and **credentials**. List and manage parts, API keys, and credentials per system; unified "Parts & keys" view per system.
 - **Dependencies and topology:** “System A depends on system B”; optional diagram or tree.
 - **Runbooks and links:** Link to Knowledge runbooks; links to dashboards, logs, repos.
 - **Reuse:** “Used by” products or other systems; impact view.
 
-**Definition:** A **system** is a reusable capability (app, service, or platform piece). It has a type from the list above, optional topic, and a set of **parts** it uses. Tenant-scoped.
+**Definition:** A **system** is a reusable capability (app, service, or platform piece). It has a type from the list above, optional topic, and a set of **parts**, **API keys**, and **credentials** it uses. Tenant-scoped.
 
 ---
 
 ### 10.13 Parts (domain)
 
-- **Part types:** Token, account, API key, credential, license, or other small asset.
-- **Parent:** Each part belongs to a **parent**: a System or a Product (and optionally another entity later). Enables “this key is used by system X” or “this account is for product Y.”
-- **Sensitive handling:** Optional masking in UI; audit log for access/rotation; link to Deadlines for expiry (e.g. token expiry).
-- **Discovery:** List by parent, type, or topic; “where is this part used?” (reverse lookup from parent).
+**Decided (hybrid):** Part remains for the long tail; **ApiKey** and **Credential** are first-class. See [operational_use_cases_vs_apps.md](operational_use_cases_vs_apps.md).
 
-**Definition:** A **part** is a traceable asset (token, account, API key, credential) owned by a system or product. Expiring or rotation-due parts link to Deadlines for visibility and reminders. Tenant-scoped.
+- **Part:** Token, account, license, or other. Parent: System or Product (generic FK). Optional **expires_at**. No rotation fields; link to Deadlines via generic relation.
+- **ApiKey:** First-class. last_rotated_at, next_rotation_due, optional scope/environment, parent (System/Product). Dedicated "Rotate" / "Set next rotation" actions. Link to Deadlines for rotation-due.
+- **Credential:** First-class, same attachment and rotation fields as ApiKey.
+- **Unified UI:** "API Keys" and "Credentials" sections; one "Parts & keys" aggregate view per Product/System.
+- **Discovery:** List by parent, type, or topic. Deadlines link to Part, ApiKey, or Credential via ContentType + object_id.
+
+**Definition:** **Parts** (domain) comprises **Part** (generic traceable assets: token, account, license, other), **ApiKey**, and **Credential** (first-class for rotation and security). All belong to a system or product; expiring or rotation-due items link to Deadlines via generic relation. See [operational_use_cases_vs_apps.md](operational_use_cases_vs_apps.md). Tenant-scoped.
 
 ---
 
@@ -488,12 +491,12 @@ Below expands each module with concrete features and definitions. **Decided** ca
 
 ### 10.17 Deadlines (domain)
 
-- **Deadline entity:** Type: payment, contract, renewal, compliance, **expiring token/account** (link to Part), product milestone, plan milestone. Due date; amount if applicable; status (pending/done/overdue).
+- **Deadline entity:** Type: payment, contract, renewal, compliance, **expiring token/account**, **rotation due**, product milestone, plan milestone. Link to expirable/rotatable entity via **generic relation** (ContentType + object_id): Part, ApiKey, Credential, or ServiceCredential. Due date; amount if applicable; status (pending/done/overdue).
 - **Reminders:** Optional reminder rules (e.g. 7 days before); notifications or dashboard widget.
-- **Linking:** To Money (invoices), Products, Plans, Tasks, **Parts** (expiry); avoid double entry.
-- **Status and “expiring soon”:** Mark done; list overdue and upcoming; “expiring soon” for parts with linked deadlines.
+- **Linking:** To Money (invoices), Products, Plans, Tasks, Part/ApiKey/Credential/ServiceCredential for expiry or rotation; avoid double entry.
+- **Status and “expiring soon”:** Mark done; list overdue and upcoming; “expiring soon” or “rotation due” for any linked entity.
 
-**Definition:** A **deadline** is a point in time that matters for products, plans, milestones, payments, or parts (e.g. key expiry). One deadline can link to one Part for “expiring token/account” type. Tenant-scoped.
+**Definition:** A **deadline** is a point in time that matters for products, plans, milestones, payments, or for expiring/rotatable assets (Part, ApiKey, Credential, ServiceCredential). One deadline can link to one such entity via generic relation. Tenant-scoped.
 
 ---
 
@@ -560,6 +563,7 @@ Summary of decisions applied in this plan:
 | **Dashboard** | **Per-user** customization: each user chooses widgets. V1 widgets: **Tasks**, **Projects**, **Deadlines**. |
 | **Products** | **Many** plans per product. **Generic relations** on certain models for unexpected relations; which models and design TBD in module/dev docs. |
 | **Knowledge** | Navigate via **React Flow graph** or **other views** (lists, cards, etc.). Other view types and layouts to be designed iteratively. |
+| **Parts** | **Hybrid:** Keep **Part** (Token, Account, License, Other) with optional expires_at; promote **ApiKey** and **Credential** to first-class models with rotation dates and same attachment to System/Product. Unified "Parts & keys" view. Deadlines link via generic relation to Part, ApiKey, Credential, ServiceCredential. See [operational_use_cases_vs_apps.md](operational_use_cases_vs_apps.md). |
 
 **Still open:** API versioning (URL vs header); which models get generic relations and how they are exposed; Knowledge view types and layouts beyond graph/list/cards.
 
