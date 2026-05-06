@@ -1,0 +1,46 @@
+<div class="grid gap-4 md:grid-cols-3">
+  <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <p class="text-xs uppercase tracking-wide text-slate-500">Income</p>
+    <p class="mt-1 font-display text-2xl font-bold text-emerald-700">{{ summary.total_income }}</p>
+  </div>
+  <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <p class="text-xs uppercase tracking-wide text-slate-500">Expenses</p>
+    <p class="mt-1 font-display text-2xl font-bold text-red-700">{{ summary.total_expense }}</p>
+  </div>
+  <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <p class="text-xs uppercase tracking-wide text-slate-500">Net</p>
+    <p class="mt-1 font-display text-2xl font-bold text-slate-900">{{ summary.net }}</p>
+  </div>
+</div>
+
+<div class="mt-6 grid gap-6 md:grid-cols-2">
+  <section class="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+    <header class="px-4 py-3 bg-emerald-50 border-b border-emerald-100">
+      <h3 class="font-semibold text-emerald-700">Income by category</h3>
+    </header>
+    <table class="min-w-full text-sm">
+      <tbody class="divide-y divide-slate-100">
+        {% for row in summary.income_by_category %}
+          <tr><td class="px-4 py-2 text-slate-700">{{ row.name }}</td><td class="px-4 py-2 text-right font-mono">{{ row.total }}</td></tr>
+        {% empty %}
+          <tr><td class="px-4 py-4 text-center text-slate-500">No income.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+    <header class="px-4 py-3 bg-red-50 border-b border-red-100">
+      <h3 class="font-semibold text-red-700">Expense by category</h3>
+    </header>
+    <table class="min-w-full text-sm">
+      <tbody class="divide-y divide-slate-100">
+        {% for row in summary.expense_by_category %}
+          <tr><td class="px-4 py-2 text-slate-700">{{ row.name }}</td><td class="px-4 py-2 text-right font-mono">{{ row.total }}</td></tr>
+        {% empty %}
+          <tr><td class="px-4 py-4 text-center text-slate-500">No expenses.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>

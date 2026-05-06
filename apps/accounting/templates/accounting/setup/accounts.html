@@ -1,0 +1,49 @@
+{% extends "accounting/_base.html" %}
+{% block title %}Setup - Accounts{% endblock %}
+{% block content %}
+  {% include "accounting/setup/_steps.html" %}
+  <div class="grid gap-6 lg:grid-cols-2">
+    <section class="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
+      <h2 class="font-display text-xl font-bold text-slate-900">Add an account</h2>
+      <form method="post" class="mt-4 space-y-3 text-sm">
+        {% csrf_token %}
+        {% for field in form %}
+          <label class="block">
+            <span class="text-slate-700 font-medium">{{ field.label }}</span>
+            {{ field }}
+            {% if field.errors %}<p class="text-red-600 text-xs mt-1">{{ field.errors|join:", " }}</p>{% endif %}
+            {% if field.help_text %}<p class="text-slate-500 text-xs mt-1">{{ field.help_text }}</p>{% endif %}
+          </label>
+        {% endfor %}
+        <div class="flex items-center justify-end gap-3 pt-2">
+          <button type="submit" class="rounded-full bg-slate-900 text-white px-4 py-2 text-sm font-semibold hover:opacity-90">
+            Add account
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <section class="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
+      <h2 class="font-display text-xl font-bold text-slate-900">Existing accounts</h2>
+      {% if accounts %}
+        <ul class="mt-4 divide-y divide-slate-200">
+          {% for acc in accounts %}
+            <li class="py-3 text-sm flex items-center justify-between">
+              <div>
+                <p class="font-medium text-slate-900">{{ acc.name }}</p>
+                <p class="text-slate-500">{{ acc.get_kind_display }} - {{ acc.currency.code }}{% if acc.iban %} - {{ acc.iban }}{% endif %}</p>
+              </div>
+              <span class="text-slate-700 font-mono">{{ acc.opening_balance }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+        <a href="{% url 'accounting:setup_review' %}"
+           class="inline-flex mt-6 items-center rounded-full bg-gradient-brand px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90">
+          Continue
+        </a>
+      {% else %}
+        <p class="mt-4 text-sm text-slate-500">No accounts yet. Add at least one to continue.</p>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

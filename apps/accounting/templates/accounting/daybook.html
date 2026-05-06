@@ -1,0 +1,36 @@
+{% extends "accounting/_base.html" %}
+{% block title %}Daybook{% endblock %}
+{% block content %}
+  <header class="mb-6">
+    <h1 class="font-display text-3xl font-extrabold text-slate-900">Daybook</h1>
+    <p class="text-sm text-slate-500">Filterable cross-period feed of cash and bank movements.</p>
+  </header>
+
+  <form method="get"
+        hx-get="{% url 'accounting:daybook' %}"
+        hx-target="#daybook-results"
+        hx-trigger="change, keyup delay:400ms from:input[type=date]"
+        hx-swap="innerHTML"
+        class="grid gap-3 md:grid-cols-4 mb-6">
+    <label class="text-sm">
+      <span class="text-slate-700 font-medium">From</span>
+      {{ form.date_from }}
+    </label>
+    <label class="text-sm">
+      <span class="text-slate-700 font-medium">To</span>
+      {{ form.date_to }}
+    </label>
+    <label class="text-sm">
+      <span class="text-slate-700 font-medium">Account</span>
+      {{ form.account }}
+    </label>
+    <label class="text-sm">
+      <span class="text-slate-700 font-medium">Direction</span>
+      {{ form.direction }}
+    </label>
+  </form>
+
+  <section id="daybook-results">
+    {% include "accounting/partials/_daybook_filter_table.html" %}
+  </section>
+{% endblock %}

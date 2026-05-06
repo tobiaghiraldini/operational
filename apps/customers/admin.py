@@ -1,15 +1,12 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
-from django_tenants.admin import TenantAdminMixin
 
-from apps.customers.models import Client, Domain
-
-
-@admin.register(Client)
-class ClientAdmin(TenantAdminMixin, ModelAdmin):
-    list_display = ("name", "paid_until")
+from apps.core.admin_mixins import TenantSchemaOnlyAdminMixin
+from apps.customers.models import Customer
 
 
-@admin.register(Domain)
-class DomainAdmin(TenantAdminMixin, ModelAdmin):
-    list_display = ("domain", "tenant")
+@admin.register(Customer)
+class CustomerAdmin(TenantSchemaOnlyAdminMixin, ModelAdmin):
+    list_display = ("name", "vat_id", "email", "is_active")
+    search_fields = ("name", "vat_id", "email")
+    list_filter = ("is_active", "country_code")

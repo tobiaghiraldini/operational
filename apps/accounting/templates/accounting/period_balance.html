@@ -1,0 +1,9 @@
+{% extends "accounting/_base.html" %}
+{% block title %}{{ period.label }} - Balance{% endblock %}
+{% block content %}
+  <header class="mb-6">
+    <p class="text-xs uppercase tracking-wide text-slate-500">{{ period.label }}</p>
+    <h1 class="font-display text-3xl font-extrabold text-slate-900">Balance check</h1>
+  </header>
+  {% include "accounting/partials/_balance.html" %}
+{% endblock %}

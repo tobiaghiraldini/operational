@@ -1,0 +1,65 @@
+{% extends "accounting/_base.html" %}
+{% block title %}{{ period.label }} - Period{% endblock %}
+{% block content %}
+  <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+    <div>
+      <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Fiscal period</p>
+      <h1 class="font-display text-3xl font-extrabold text-slate-900">{{ period.label }}</h1>
+      <p class="text-sm text-slate-500">
+        Status:
+        <span class="font-semibold {% if period.is_open %}text-emerald-700{% elif period.is_locked %}text-slate-700{% else %}text-violet-700{% endif %}">
+          {{ period.get_status_display }}
+        </span>
+        &middot; {{ transaction_count }} transactions
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <a href="{% url 'accounting:export_period' year=period.year month=period.month %}"
+         class="rounded-full bg-gradient-brand text-white px-4 py-2 text-sm font-semibold hover:opacity-90">Export XLSX</a>
+      {% if period.is_open %}
+        <form method="post" action="{% url 'accounting:close_period' year=period.year month=period.month %}">
+          {% csrf_token %}
+          <button type="submit" class="rounded-full bg-slate-900 text-white px-4 py-2 text-sm font-semibold hover:opacity-90">
+            Close period
+          </button>
+        </form>
+      {% else %}
+        <form method="post" action="{% url 'accounting:reopen_period' year=period.year month=period.month %}">
+          {% csrf_token %}
+          <button type="submit" class="rounded-full border border-slate-300 text-slate-700 px-4 py-2 text-sm font-semibold hover:border-slate-400">
+            Reopen
+          </button>
+        </form>
+      {% endif %}
+    </div>
+  </header>
+
+  <nav class="mb-6 flex gap-1 rounded-2xl bg-white border border-slate-200 p-1 shadow-sm w-fit"
+       role="tablist">
+    <button type="button" role="tab"
+            hx-get="{% url 'accounting:period_daybook' year=period.year month=period.month %}"
+            hx-target="#tab-body" hx-swap="innerHTML"
+            class="rounded-xl px-4 py-2 text-sm font-medium {% if active_tab == 'daybook' %}bg-slate-900 text-white{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+      Daybook
+    </button>
+    <button type="button" role="tab"
+            hx-get="{% url 'accounting:period_income_statement' year=period.year month=period.month %}"
+            hx-target="#tab-body" hx-swap="innerHTML"
+            class="rounded-xl px-4 py-2 text-sm font-medium {% if active_tab == 'income_statement' %}bg-slate-900 text-white{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+      Income &amp; Expenses
+    </button>
+    <button type="button" role="tab"
+            hx-get="{% url 'accounting:period_balance' year=period.year month=period.month %}"
+            hx-target="#tab-body" hx-swap="innerHTML"
+            class="rounded-xl px-4 py-2 text-sm font-medium {% if active_tab == 'balance' %}bg-slate-900 text-white{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+      Balance
+    </button>
+  </nav>
+
+  <section id="tab-body"
+           hx-get="{% url 'accounting:period_balance' year=period.year month=period.month %}"
+           hx-trigger="load"
+           hx-swap="innerHTML">
+    <p class="text-sm text-slate-500">Loading...</p>
+  </section>
+{% endblock %}

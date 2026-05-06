@@ -1,0 +1,51 @@
+<div class="space-y-4">
+  {% for bal in balances %}
+    <article class="rounded-2xl bg-white border {% if bal.is_balanced %}border-emerald-200{% else %}border-red-200{% endif %} shadow-sm p-5">
+      <header class="flex items-center justify-between">
+        <div>
+          <h3 class="font-display text-lg font-bold text-slate-900">{{ bal.account.name }}</h3>
+          <p class="text-xs text-slate-500">{{ bal.account.get_kind_display }} - {{ bal.account.currency.code }}</p>
+        </div>
+        {% if bal.is_balanced %}
+          <span class="rounded-full bg-emerald-100 text-emerald-700 px-3 py-1 text-xs font-semibold">Balanced</span>
+        {% else %}
+          <span class="rounded-full bg-red-100 text-red-700 px-3 py-1 text-xs font-semibold">Mismatch</span>
+        {% endif %}
+      </header>
+
+      <dl class="mt-4 grid gap-3 sm:grid-cols-4 text-sm">
+        <div>
+          <dt class="text-slate-500">Opening</dt>
+          <dd class="font-mono text-slate-900">{{ bal.starting_balance }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Flow</dt>
+          <dd class="font-mono text-slate-900">{{ bal.computed_flow }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Computed close</dt>
+          <dd class="font-mono text-slate-900">{{ bal.computed_ending }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Discrepancy</dt>
+          <dd class="font-mono {% if bal.is_balanced %}text-emerald-700{% else %}text-red-700{% endif %}">{{ bal.discrepancy }}</dd>
+        </div>
+      </dl>
+
+      <form class="mt-4 flex flex-wrap items-end gap-3"
+            method="post"
+            hx-post="{% url 'accounting:set_ending_balance' year=bal.period.year month=bal.period.month account_id=bal.account.id %}"
+            hx-target="#tab-body" hx-swap="innerHTML">
+        {% csrf_token %}
+        <label class="block text-sm font-medium text-slate-700">
+          Reported closing
+          <input type="number" step="0.01" name="ending_balance" value="{{ bal.ending_balance }}"
+                 class="mt-1 block w-44 rounded-xl border border-slate-300 px-3 py-2 font-mono">
+        </label>
+        <button type="submit" class="rounded-full bg-slate-900 text-white px-4 py-2 text-sm font-semibold hover:opacity-90">Save</button>
+      </form>
+    </article>
+  {% empty %}
+    <p class="text-slate-500 text-sm">No accounts found.</p>
+  {% endfor %}
+</div>

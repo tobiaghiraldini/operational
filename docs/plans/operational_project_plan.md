@@ -36,12 +36,14 @@ This section is the lens through which all module and feature descriptions below
 
 ## 3. Stack (from requirements)
 
-| Layer   | Technologies |
-|---------|--------------|
-| **Web** | Django, Celery, Tailwind, HTMX, React |
-| **iOS** | SwiftUI, SwiftData |
-| **MacOS** | *(TBD)* |
+
+| Layer         | Technologies                                              |
+| ------------- | --------------------------------------------------------- |
+| **Web**       | Django, Celery, Tailwind, HTMX, React                     |
+| **iOS**       | SwiftUI, SwiftData                                        |
+| **MacOS**     | *(TBD)*                                                   |
 | **Languages** | Python, HTML, HTMX, CSS, TypeScript, YAML, Swift, SwiftUI |
+
 
 **Note:** The repo today is Django 6.0 + django-tenants + Unfold admin; Tailwind and React are specified in requirements and may be introduced for specific areas (e.g. Knowledge graph).
 
@@ -53,37 +55,43 @@ Operational is split into **foundation** (tenancy and access), **platform** (cro
 
 ### 4.1 Foundation (shared schema, tenant lifecycle, access)
 
-| Module | One-line goal | Plan doc |
-|--------|----------------|----------|
-| **Customers** | Multi-tenant SaaS: tenant registry, schema-per-tenant, shared vs tenant data; everyone can use Operational and their data stays safe | `customers_module.md` |
-| **Subscriptions, authentication, authorization** | Role-based access; subscription levels that determine which features each tenant and user can use | `subscriptions_auth_module.md` |
+
+| Module                                           | One-line goal                                                                                                                        | Plan doc                       |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------ |
+| **Customers**                                    | Multi-tenant SaaS: tenant registry, schema-per-tenant, shared vs tenant data; everyone can use Operational and their data stays safe | `customers_module.md`          |
+| **Subscriptions, authentication, authorization** | Role-based access; subscription levels that determine which features each tenant and user can use                                    | `subscriptions_auth_module.md` |
+
 
 ### 4.2 Platform (cross-cutting)
 
-| Module | One-line goal | Plan doc |
-|--------|----------------|----------|
-| **Core** | Shared code, workflows, algorithms, parsers, validators; orchestration and project-wide logic (serializers in API app) | `core_module.md` |
-| **AI** | AI–human interface, Operational MCP + tenant MCPs, ML with local (tenant) data | `ai_module.md` |
-| **API** | REST API for Operational clients (web, mobile, desktop) and for tenant-created API keys and integrations | `api_module.md` |
-| **Services** | External services where API keys are created and managed; registry of third-party services and tenant/product-level keys | `services_module.md` |
-| **Integrations** | API clients and integration logic for external systems (Stripe first); calls into Services for credentials | `integrations_module.md` |
-| **Dashboard** | Per-user customizable dashboard to monitor and reach all features at a glance | `dashboard_module.md` |
+
+| Module           | One-line goal                                                                                                            | Plan doc                 |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------ |
+| **Core**         | Shared code, workflows, algorithms, parsers, validators; orchestration and project-wide logic (serializers in API app)   | `core_module.md`         |
+| **AI**           | AI–human interface, Operational MCP + tenant MCPs, ML with local (tenant) data                                           | `ai_module.md`           |
+| **API**          | REST API for Operational clients (web, mobile, desktop) and for tenant-created API keys and integrations                 | `api_module.md`          |
+| **Services**     | External services where API keys are created and managed; registry of third-party services and tenant/product-level keys | `services_module.md`     |
+| **Integrations** | API clients and integration logic for external systems (Stripe first); calls into Services for credentials               | `integrations_module.md` |
+| **Dashboard**    | Per-user customizable dashboard to monitor and reach all features at a glance                                            | `dashboard_module.md`    |
+
 
 ### 4.3 Domain (tenant schema)
 
-| Module | One-line goal | Plan doc |
-|--------|----------------|----------|
-| **Plan** | Improvisation kills outcomes; plans are made of milestones (and more) | `plan_module.md` |
-| **Milestone** | Goals with dates, details, linked tasks and other info; building blocks of plans | `milestone_module.md` |
-| **Products** | Projects or product types; made of plans, milestones, systems, parts, API keys, credentials; status live/dev/testing; sensitive data traced safely | `products_module.md` |
-| **Systems** | Reusable systems (infra, auth, observability, API client, MCP, etc.); made of parts, API keys, credentials | `systems_module.md` |
-| **Parts** | Part (tokens, accounts, licenses, other) + first-class **ApiKey** and **Credential**; belong to systems/products; deadlines, expirations, rotations (see [operational_use_cases_vs_apps.md](operational_use_cases_vs_apps.md)) | `parts_module.md` |
-| **Topics** | Main concepts that tag knowledge, products, parts, systems (and more) | `topics_module.md` |
-| **Knowledge** | No lost knowledge; node graph (React Flow) and other views; what things are made of and how they connect | `knowledge_module.md` |
-| **Tasks** | Get work done and organized | `tasks_module.md` |
-| **Deadlines** | Deadlines with status for products, plans, payments, expiring tokens/accounts; don’t forget, don’t do twice | `deadlines_module.md` |
-| **Money** | Expenses, earnings, budgets, trends, graphs | `money_module.md` |
-| **Accounting** | Tax reporting: journal entries, financial statements, reports, cash flow, bank movements | `accounting_module.md` |
+
+| Module         | One-line goal                                                                                                                                                                                                                  | Plan doc               |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- |
+| **Plan**       | Improvisation kills outcomes; plans are made of milestones (and more)                                                                                                                                                          | `plan_module.md`       |
+| **Milestone**  | Goals with dates, details, linked tasks and other info; building blocks of plans                                                                                                                                               | `milestone_module.md`  |
+| **Products**   | Projects or product types; made of plans, milestones, systems, parts, API keys, credentials; status live/dev/testing; sensitive data traced safely                                                                             | `products_module.md`   |
+| **Systems**    | Reusable systems (infra, auth, observability, API client, MCP, etc.); made of parts, API keys, credentials                                                                                                                     | `systems_module.md`    |
+| **Parts**      | Part (tokens, accounts, licenses, other) + first-class **ApiKey** and **Credential**; belong to systems/products; deadlines, expirations, rotations (see [operational_use_cases_vs_apps.md](operational_use_cases_vs_apps.md)) | `parts_module.md`      |
+| **Topics**     | Main concepts that tag knowledge, products, parts, systems (and more)                                                                                                                                                          | `topics_module.md`     |
+| **Knowledge**  | No lost knowledge; node graph (React Flow) and other views; what things are made of and how they connect                                                                                                                       | `knowledge_module.md`  |
+| **Tasks**      | Get work done and organized                                                                                                                                                                                                    | `tasks_module.md`      |
+| **Deadlines**  | Deadlines with status for products, plans, payments, expiring tokens/accounts; don’t forget, don’t do twice                                                                                                                    | `deadlines_module.md`  |
+| **Money**      | Expenses, earnings, budgets, trends, graphs                                                                                                                                                                                    | `money_module.md`      |
+| **Accounting** | Tax reporting: journal entries, financial statements, reports, cash flow, bank movements                                                                                                                                       | `accounting_module.md` |
+
 
 ---
 
@@ -116,6 +124,8 @@ flowchart TB
   TenantRegistry --> tenantA
   TenantRegistry --> tenantB
 ```
+
+
 
 ---
 
@@ -168,6 +178,8 @@ flowchart LR
   Services --> Integrations
 ```
 
+
+
 ```mermaid
 flowchart TB
   subgraph external [External]
@@ -184,6 +196,8 @@ flowchart TB
   Operational --> Tax
   Operational --> ThirdParty
 ```
+
+
 
 ---
 
@@ -256,6 +270,8 @@ flowchart TB
   Dashboard --> Money
 ```
 
+
+
 ---
 
 ## 8. High-level request flow (Mermaid)
@@ -278,6 +294,8 @@ sequenceDiagram
   Module-->>View: data
   View-->>Browser: HTML full or partial
 ```
+
+
 
 ---
 
@@ -530,10 +548,12 @@ Below expands each module with concrete features and definitions. **Decided** ca
 
 ## 11. Documentation structure
 
-| Location | Purpose | Contents |
-|----------|---------|----------|
-| **docs/plans/** | High-level plans, scope, architecture, feature sets | Master plan (this file); one plan per module. Mermaid: architecture, module interactions, decision trees. |
-| **docs/dev/** | Implementation details | One file per plan or sub-feature: API contracts, DB schema, request/response, data transformations, sequence diagrams. |
+
+| Location        | Purpose                                             | Contents                                                                                                               |
+| --------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **docs/plans/** | High-level plans, scope, architecture, feature sets | Master plan (this file); one plan per module. Mermaid: architecture, module interactions, decision trees.              |
+| **docs/dev/**   | Implementation details                              | One file per plan or sub-feature: API contracts, DB schema, request/response, data transformations, sequence diagrams. |
+
 
 **Convention:** For each module, add `docs/plans/<module>_module.md` and, when implementing, `docs/dev/<module>_*.md` with implementation details.
 
@@ -554,16 +574,18 @@ Below expands each module with concrete features and definitions. **Decided** ca
 
 Summary of decisions applied in this plan:
 
-| Area | Decision |
-|------|----------|
-| **Core** | Core holds shared code, functions, algorithms, parsers, validators that don’t belong to specific apps. Serializers stay in API app; domain-specific Operational logic lives in Core. |
-| **AI** | Shared **Operational MCP** suggests functions/workflows in Operational; **tenant MCPs** work on tenant-specific data. |
-| **API** | Serves both mobile/desktop apps and external integrations. Tenants can create and manage their own **API keys**. |
-| **Integrations** | Start with **Stripe**. Credentials: **shared** for product-level integrations; **per-tenant** for integrations used by Operational users. |
-| **Dashboard** | **Per-user** customization: each user chooses widgets. V1 widgets: **Tasks**, **Projects**, **Deadlines**. |
-| **Products** | **Many** plans per product. **Generic relations** on certain models for unexpected relations; which models and design TBD in module/dev docs. |
-| **Knowledge** | Navigate via **React Flow graph** or **other views** (lists, cards, etc.). Other view types and layouts to be designed iteratively. |
-| **Parts** | **Hybrid:** Keep **Part** (Token, Account, License, Other) with optional expires_at; promote **ApiKey** and **Credential** to first-class models with rotation dates and same attachment to System/Product. Unified "Parts & keys" view. Deadlines link via generic relation to Part, ApiKey, Credential, ServiceCredential. See [operational_use_cases_vs_apps.md](operational_use_cases_vs_apps.md). |
+
+| Area             | Decision                                                                                                                                                                                                                                                                                                                                                                                               |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Core**         | Core holds shared code, functions, algorithms, parsers, validators that don’t belong to specific apps. Serializers stay in API app; domain-specific Operational logic lives in Core.                                                                                                                                                                                                                   |
+| **AI**           | Shared **Operational MCP** suggests functions/workflows in Operational; **tenant MCPs** work on tenant-specific data.                                                                                                                                                                                                                                                                                  |
+| **API**          | Serves both mobile/desktop apps and external integrations. Tenants can create and manage their own **API keys**.                                                                                                                                                                                                                                                                                       |
+| **Integrations** | Start with **Stripe**. Credentials: **shared** for product-level integrations; **per-tenant** for integrations used by Operational users.                                                                                                                                                                                                                                                              |
+| **Dashboard**    | **Per-user** customization: each user chooses widgets. V1 widgets: **Tasks**, **Projects**, **Deadlines**.                                                                                                                                                                                                                                                                                             |
+| **Products**     | **Many** plans per product. **Generic relations** on certain models for unexpected relations; which models and design TBD in module/dev docs.                                                                                                                                                                                                                                                          |
+| **Knowledge**    | Navigate via **React Flow graph** or **other views** (lists, cards, etc.). Other view types and layouts to be designed iteratively.                                                                                                                                                                                                                                                                    |
+| **Parts**        | **Hybrid:** Keep **Part** (Token, Account, License, Other) with optional expires_at; promote **ApiKey** and **Credential** to first-class models with rotation dates and same attachment to System/Product. Unified "Parts & keys" view. Deadlines link via generic relation to Part, ApiKey, Credential, ServiceCredential. See [operational_use_cases_vs_apps.md](operational_use_cases_vs_apps.md). |
+
 
 **Still open:** API versioning (URL vs header); which models get generic relations and how they are exposed; Knowledge view types and layouts beyond graph/list/cards.
 

@@ -1,0 +1,32 @@
+<div class="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+  <table class="min-w-full text-sm">
+    <thead class="bg-slate-100 text-slate-700">
+      <tr>
+        <th class="text-left px-3 py-2">Date</th>
+        <th class="text-left px-3 py-2">Counterparty</th>
+        <th class="text-left px-3 py-2">Account</th>
+        <th class="text-left px-3 py-2">Category</th>
+        <th class="text-right px-3 py-2">In</th>
+        <th class="text-right px-3 py-2">Out</th>
+        <th class="text-right px-3 py-2">Balance</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for row in rows %}
+        {% with tx=row.transaction %}
+          <tr class="{% cycle '' 'bg-slate-50' %}">
+            <td class="px-3 py-2 text-slate-700">{{ tx.date }}</td>
+            <td class="px-3 py-2 text-slate-900 font-medium">{{ tx.counterparty|default:"-" }}</td>
+            <td class="px-3 py-2 text-slate-700">{{ tx.account.name }}</td>
+            <td class="px-3 py-2 text-slate-500">{{ tx.category.name|default:"-" }}</td>
+            <td class="px-3 py-2 text-right font-mono text-emerald-700">{% if tx.direction == 'in' %}{{ tx.amount }}{% endif %}</td>
+            <td class="px-3 py-2 text-right font-mono text-red-700">{% if tx.direction == 'out' %}{{ tx.amount }}{% endif %}</td>
+            <td class="px-3 py-2 text-right font-mono">{{ row.balance }}</td>
+          </tr>
+        {% endwith %}
+      {% empty %}
+        <tr><td colspan="7" class="px-3 py-6 text-center text-slate-500">No transactions in range.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

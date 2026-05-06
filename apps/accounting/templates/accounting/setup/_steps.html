@@ -1,0 +1,12 @@
+<ol class="flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500 mb-6">
+  {% for step in steps %}
+    <li class="flex items-center gap-2">
+      <span class="rounded-full px-3 py-1 border
+                   {% if current_step == step.slug %}bg-slate-900 text-white border-slate-900
+                   {% else %}bg-white text-slate-600 border-slate-200{% endif %}">
+        {{ forloop.counter }}. {{ step.title }}
+      </span>
+      {% if not forloop.last %}<span class="text-slate-300">&rsaquo;</span>{% endif %}
+    </li>
+  {% endfor %}
+</ol>

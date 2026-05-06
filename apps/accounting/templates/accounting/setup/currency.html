@@ -1,0 +1,25 @@
+{% extends "accounting/_base.html" %}
+{% block title %}Setup - Currency{% endblock %}
+{% block content %}
+  {% include "accounting/setup/_steps.html" %}
+  <section class="rounded-2xl bg-white border border-slate-200 p-8 shadow-sm max-w-xl">
+    <h1 class="font-display text-2xl font-bold text-slate-900">Base currency</h1>
+    <p class="mt-2 text-sm text-slate-600">
+      Current: <span class="font-semibold text-slate-900">{{ current_currency }}</span>
+    </p>
+    <form method="post" class="mt-6 space-y-4">
+      {% csrf_token %}
+      <label class="block text-sm font-medium text-slate-700">
+        Currency
+        {{ form.currency }}
+      </label>
+      {% if form.currency.errors %}<p class="text-sm text-red-600">{{ form.currency.errors|join:", " }}</p>{% endif %}
+      <div class="flex items-center justify-end gap-3 pt-2">
+        <a href="{% url 'accounting:setup_intro' %}" class="text-sm text-slate-500 hover:text-slate-900">Back</a>
+        <button type="submit" class="rounded-full bg-slate-900 text-white px-4 py-2 text-sm font-semibold hover:opacity-90">
+          Continue
+        </button>
+      </div>
+    </form>
+  </section>
+{% endblock %}

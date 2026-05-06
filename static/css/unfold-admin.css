@@ -1,0 +1,23 @@
+#nav-sidebar-apps h2 {
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 700;
+    opacity: 0.95;
+}
+
+#nav-sidebar-apps ol a {
+    color: var(--color-base-600);
+}
+
+.dark #nav-sidebar-apps ol a {
+    color: var(--color-base-300);
+}
+
+#nav-sidebar-apps ol a.active {
+    color: var(--color-primary-600);
+}
+
+.dark #nav-sidebar-apps ol a.active {
+    color: var(--color-primary-500);
+}

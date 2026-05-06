@@ -37,14 +37,18 @@ SHARED_APPS = [
     "unfold.contrib.forms",
     "unfold.contrib.inlines",
     "unfold.contrib.import_export",
+    "import_export",
     "unfold.contrib.guardian",
     "unfold.contrib.simple_history",
     "unfold.contrib.location_field",
     "unfold.contrib.constance",
     "django.contrib.admin",
     "django.contrib.auth",
+    "tenant_users.permissions",
+    "tenant_users.tenants",
     "django_tenants",
-    "apps.customers",
+    "apps.tenants",
+    "apps.users",
     "apps.subscriptions",
     "apps.core",
     "apps.ai",
@@ -54,9 +58,11 @@ SHARED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django_celery_results",
 ]
 
 TENANT_APPS = [
+    "tenant_users.permissions",
     "apps.services",
     "apps.dashboard",
     "apps.plans",
@@ -70,15 +76,24 @@ TENANT_APPS = [
     "apps.deadlines",
     "apps.money",
     "apps.accounting",
+    "apps.customers",
+    "apps.vendors",
+    "apps.documents",
+    "apps.invoices",
+    "apps.organizations",
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [
     app for app in TENANT_APPS if app not in SHARED_APPS
 ]
 
-TENANT_MODEL = "customers.Client"  # app.Model
+TENANT_MODEL = "tenants.Tenant"  # app.Model
 
-TENANT_DOMAIN_MODEL = "customers.Domain"  # app.Model
+TENANT_DOMAIN_MODEL = "tenants.Domain"  # app.Model
+
+# django-import-export: wrap each import in a single DB transaction so a
+# partial XLS upload never leaves accounting data half-imported.
+IMPORT_EXPORT_USE_TRANSACTIONS = True
 
 
 MIDDLEWARE = [
@@ -88,6 +103,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "tenant_users.tenants.middleware.TenantAccessMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -139,6 +155,15 @@ DATABASES = {
 }
 
 DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)
+
+AUTH_USER_MODEL = "users.TenantUser"
+
+AUTHENTICATION_BACKENDS = (
+    "tenant_users.permissions.backend.UserBackend",
+    "django.contrib.auth.backends.ModelBackend",
+)
+
+TENANT_USERS_DOMAIN = os.getenv("TENANT_USERS_DOMAIN", "localhost")
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -226,3 +251,17 @@ INTERNAL_IPS = [
     "127.0.0.1",
     # ...
 ]
+
+UNFOLD = {
+    "SITE_TITLE": "Operational Admin",
+    "SITE_HEADER": "Operational",
+    "SITE_SUBHEADER": "Control Center",
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": True,
+        "navigation": "apps.core.admin_navigation.get_sidebar_navigation",
+    },
+    "STYLES": [
+        lambda request: "/static/css/unfold-admin.css",
+    ],
+}

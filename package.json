@@ -1,0 +1,32 @@
+{
+  "name": "operational",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "build:css": "npx @tailwindcss/cli -i ./static/css/tailwind.input.css -o ./static/css/home.css --minify",
+    "watch:css": "npx @tailwindcss/cli -i ./static/css/tailwind.input.css -o ./static/css/home.css --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tobiaghiraldini/operational.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/tobiaghiraldini/operational/issues"
+  },
+  "homepage": "https://github.com/tobiaghiraldini/operational#readme",
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.2.4",
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.10",
+    "tailwindcss": "^4.2.4"
+  }
+}

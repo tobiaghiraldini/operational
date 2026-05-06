@@ -1,0 +1,9 @@
+{% extends "accounting/_base.html" %}
+{% block title %}{{ period.label }} - Daybook{% endblock %}
+{% block content %}
+  <header class="mb-6">
+    <p class="text-xs uppercase tracking-wide text-slate-500">{{ period.label }}</p>
+    <h1 class="font-display text-3xl font-extrabold text-slate-900">Daybook</h1>
+  </header>
+  {% include "accounting/partials/_daybook_table.html" %}
+{% endblock %}

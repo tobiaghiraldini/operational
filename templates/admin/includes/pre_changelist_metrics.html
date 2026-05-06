@@ -1,0 +1,19 @@
+{% if changelist_metrics %}
+    <div class="grid gap-4 mb-4 md:grid-cols-2 xl:grid-cols-4">
+        {% for metric in changelist_metrics %}
+            <article class="bg-white border border-base-200 dark:bg-base-900 dark:border-base-800 rounded-default px-4 py-3">
+                <p class="text-xs uppercase tracking-wide text-font-subtle-light dark:text-font-subtle-dark">
+                    {{ metric.label }}
+                </p>
+                <p class="mt-1 text-2xl font-semibold text-font-important-light dark:text-font-important-dark">
+                    {{ metric.value }}
+                </p>
+                {% if metric.help %}
+                    <p class="mt-1 text-xs text-font-subtle-light dark:text-font-subtle-dark">
+                        {{ metric.help }}
+                    </p>
+                {% endif %}
+            </article>
+        {% endfor %}
+    </div>
+{% endif %}

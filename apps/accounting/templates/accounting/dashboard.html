@@ -1,0 +1,58 @@
+{% extends "accounting/_base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+  <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+    <div>
+      <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Current period</p>
+      <h1 class="font-display text-3xl font-extrabold text-slate-900">{{ period.label }}</h1>
+      <p class="text-sm text-slate-500">Status: <span class="font-semibold {% if period.is_open %}text-emerald-700{% else %}text-slate-700{% endif %}">{{ period.get_status_display }}</span> &middot; Base currency {{ base_currency }}</p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <a href="{% url 'accounting:period_detail' year=period.year month=period.month %}"
+         class="rounded-full bg-slate-900 text-white px-4 py-2 text-sm font-semibold hover:opacity-90">Open period</a>
+      <a href="{% url 'accounting:export_period' year=period.year month=period.month %}"
+         class="rounded-full bg-gradient-brand text-white px-4 py-2 text-sm font-semibold hover:opacity-90">Export XLSX</a>
+    </div>
+  </header>
+
+  <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    {% for bal in balances %}
+      <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <header class="flex items-center justify-between">
+          <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ bal.account.get_kind_display }}</p>
+          {% if bal.is_balanced %}
+            <span class="rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-xs font-semibold">Balanced</span>
+          {% else %}
+            <span class="rounded-full bg-red-100 text-red-700 px-2 py-0.5 text-xs font-semibold">Mismatch</span>
+          {% endif %}
+        </header>
+        <h2 class="mt-2 font-display text-xl font-bold text-slate-900">{{ bal.account.name }}</h2>
+        <dl class="mt-4 space-y-2 text-sm">
+          <div class="flex justify-between"><dt class="text-slate-500">Opening</dt><dd class="font-mono">{{ bal.starting_balance }}</dd></div>
+          <div class="flex justify-between"><dt class="text-slate-500">Computed close</dt><dd class="font-mono">{{ bal.computed_ending }}</dd></div>
+          <div class="flex justify-between"><dt class="text-slate-500">Reported close</dt><dd class="font-mono">{{ bal.ending_balance }}</dd></div>
+          <div class="flex justify-between"><dt class="text-slate-500">Discrepancy</dt><dd class="font-mono {% if bal.is_balanced %}text-emerald-700{% else %}text-red-700{% endif %}">{{ bal.discrepancy }}</dd></div>
+        </dl>
+      </article>
+    {% empty %}
+      <div class="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">
+        No accounts yet. <a href="{% url 'accounting:setup_accounts' %}" class="text-cyan-700 hover:underline">Add one</a>.
+      </div>
+    {% endfor %}
+  </section>
+
+  <section class="mt-10">
+    <h2 class="font-display text-xl font-bold text-slate-900 mb-3">Recent periods</h2>
+    <ul class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+      {% for p in recent_periods %}
+        <li>
+          <a href="{% url 'accounting:period_detail' year=p.year month=p.month %}"
+             class="block rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm hover:border-slate-400">
+            <span class="font-semibold text-slate-900">{{ p.label }}</span>
+            <span class="block text-xs text-slate-500">{{ p.get_status_display }}</span>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+{% endblock %}

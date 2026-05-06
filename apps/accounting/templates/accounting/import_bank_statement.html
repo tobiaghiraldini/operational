@@ -1,0 +1,69 @@
+{% extends "accounting/_base.html" %}
+{% block title %}Import bank statement{% endblock %}
+{% block content %}
+  <header class="mb-6">
+    <h1 class="font-display text-3xl font-extrabold text-slate-900">Import bank statement</h1>
+    <p class="text-sm text-slate-500">Upload a bank statement PDF; we parse it, store the lines, and try to match each one to an existing transaction.</p>
+  </header>
+
+  <section class="rounded-2xl bg-white border border-slate-200 shadow-sm p-6 max-w-xl">
+    <form method="post" enctype="multipart/form-data" class="space-y-4">
+      {% csrf_token %}
+      {% for field in form %}
+        <label class="block text-sm">
+          <span class="text-slate-700 font-medium">{{ field.label }}</span>
+          {{ field }}
+          {% if field.errors %}<p class="text-red-600 text-xs mt-1">{{ field.errors|join:", " }}</p>{% endif %}
+          {% if field.help_text %}<p class="text-slate-500 text-xs mt-1">{{ field.help_text }}</p>{% endif %}
+        </label>
+      {% endfor %}
+      <div class="flex justify-end">
+        <button type="submit" class="rounded-full bg-gradient-brand text-white px-5 py-2.5 text-sm font-semibold hover:opacity-90">
+          Upload &amp; parse
+        </button>
+      </div>
+    </form>
+  </section>
+
+  {% if statement %}
+    <section class="mt-8 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+      <header class="px-5 py-3 bg-slate-100 border-b border-slate-200">
+        <h2 class="font-semibold text-slate-900">Statement {{ statement.period_start }} - {{ statement.period_end }}</h2>
+        <p class="text-xs text-slate-500">
+          Account: {{ statement.account.name }} - opening {{ statement.opening_balance }} - closing {{ statement.closing_balance }}
+          {% if stats %}
+            - matched {{ stats.matched }}/{{ stats.total }}
+          {% endif %}
+        </p>
+      </header>
+      <table class="min-w-full text-sm">
+        <thead class="bg-slate-50 text-slate-700">
+          <tr>
+            <th class="text-left px-3 py-2">Date</th>
+            <th class="text-left px-3 py-2">Description</th>
+            <th class="text-right px-3 py-2">Direction</th>
+            <th class="text-right px-3 py-2">Amount</th>
+            <th class="text-right px-3 py-2">Matched</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for line in statement.lines.all %}
+            <tr>
+              <td class="px-3 py-2 text-slate-700">{{ line.date }}</td>
+              <td class="px-3 py-2 text-slate-900">{{ line.description }}</td>
+              <td class="px-3 py-2 text-right">{{ line.direction }}</td>
+              <td class="px-3 py-2 text-right font-mono">{{ line.amount }}</td>
+              <td class="px-3 py-2 text-right">
+                {% if line.is_matched %}
+                  <span class="rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-xs font-semibold">Yes</span>
+                {% else %}
+                  <span class="rounded-full bg-red-100 text-red-700 px-2 py-0.5 text-xs font-semibold">No</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  {% endif %}
+{% endblock %}
