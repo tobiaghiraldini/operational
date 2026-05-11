@@ -43,7 +43,9 @@ def recompute_period_balances(
             period=period, account=account
         )
 
-        if created or bal.starting_balance == Decimal("0"):
+        if not bal.opening_confirmed_at and (
+            created or bal.starting_balance == Decimal("0")
+        ):
             bal.starting_balance = _initial_starting_balance(account, prev)
 
         bal.computed_flow = _signed_flow(account, date_from, date_to)
@@ -99,4 +101,36 @@ def set_reported_ending_balance(
     )
     bal.ending_balance = Decimal(ending_balance)
     bal.save(update_fields=["ending_balance", "updated_at"])
+    return recompute_period_balances(period, only_account_ids=[account.id])[0]
+
+
+@db_transaction.atomic
+def confirm_opening_balance(
+    period: FiscalPeriod,
+    account: Account,
+    user,
+    *,
+    starting_balance: Decimal | None = None,
+) -> PeriodAccountBalance:
+    """Audit-stamp the opening balance for `account` on `period` and recompute.
+
+    If `starting_balance` is provided, it overrides the row's current value
+    before stamping (this lets the admin form save and confirm in one step).
+    The user is recorded as `opening_confirmed_by`.
+    """
+    bal, _ = PeriodAccountBalance.objects.get_or_create(
+        period=period, account=account
+    )
+    if starting_balance is not None:
+        bal.starting_balance = Decimal(starting_balance)
+    bal.opening_confirmed_at = timezone.now()
+    bal.opening_confirmed_by = user if getattr(user, "is_authenticated", False) else None
+    bal.save(
+        update_fields=[
+            "starting_balance",
+            "opening_confirmed_at",
+            "opening_confirmed_by",
+            "updated_at",
+        ]
+    )
     return recompute_period_balances(period, only_account_ids=[account.id])[0]

@@ -19,10 +19,14 @@ from django_tenants.test.cases import FastTenantTestCase
 from openpyxl import load_workbook
 
 from apps.accounting.models import FiscalPeriod, PeriodAccountBalance
-from apps.accounting.services.balance import recompute_period_balances
+from apps.accounting.services.balance import (
+    confirm_opening_balance,
+    recompute_period_balances,
+)
 from apps.accounting.services.daybook import build_daybook
 from apps.accounting.services.exports import build_monthly_workbook
 from apps.accounting.services.period import get_or_create_period
+from apps.accounting.services.period_feed import build_period_feed
 from apps.accounting.setup import is_setup_completed
 from apps.money.models import Account, Currency, Transaction
 
@@ -161,6 +165,103 @@ class AccountingSmokeTests(FastTenantTestCase):
                 "Bank Lines",
             ],
         )
+
+    # ---------------- period feed (daybook admin view) ----------------
+
+    def test_build_period_feed_includes_transactions_and_unpaid_invoices(self):
+        from apps.invoices.models import Invoice
+
+        period = get_or_create_period(2026, 5)
+        tx_paid_invoice = Invoice.objects.create(
+            invoice_number="INV-1",
+            invoice_date=dt.date(2026, 5, 4),
+            due_date=dt.date(2026, 5, 30),
+            total_amount=Decimal("500"),
+            currency="EUR",
+            original_filename="inv1.pdf",
+            file_path="invoices/inv1.pdf",
+        )
+        Invoice.objects.create(
+            invoice_number="INV-2",
+            invoice_date=dt.date(2026, 5, 6),
+            due_date=dt.date(2026, 5, 30),
+            total_amount=Decimal("250"),
+            currency="EUR",
+            original_filename="inv2.pdf",
+            file_path="invoices/inv2.pdf",
+        )
+        self._make_tx(
+            date=dt.date(2026, 5, 5),
+            amount=Decimal("500"),
+            direction=Transaction.DIRECTION_IN,
+            invoice=tx_paid_invoice,
+        )
+        self._make_tx(
+            date=dt.date(2026, 5, 1),
+            amount=Decimal("80"),
+            direction=Transaction.DIRECTION_OUT,
+        )
+
+        feed = build_period_feed(period)
+
+        self.assertEqual(feed.period, period)
+        self.assertEqual(len(feed.entries), 3)
+        self.assertEqual(
+            [e["date"] for e in feed.entries],
+            sorted([e["date"] for e in feed.entries]),
+        )
+        kinds = [(e["kind"], e["account_label"]) for e in feed.entries]
+        self.assertIn(("invoice", "Unpaid"), kinds)
+        self.assertIn(("transaction", self.account.name), kinds)
+        self.assertEqual(feed.totals["unpaid_invoice_count"], Decimal("1"))
+
+    # ---------------- confirm_opening_balance ----------------
+
+    def test_confirm_opening_balance_stamps_audit_fields_and_recomputes(self):
+        from apps.users.models import TenantUser
+
+        user, _ = TenantUser.objects.get_or_create(
+            email="confirmer@example.com",
+            defaults={"is_active": True},
+        )
+        period = get_or_create_period(2026, 5)
+        self._make_tx(
+            date=dt.date(2026, 5, 4),
+            amount=Decimal("200"),
+            direction=Transaction.DIRECTION_IN,
+        )
+
+        bal = confirm_opening_balance(
+            period,
+            self.account,
+            user,
+            starting_balance=Decimal("750"),
+        )
+
+        bal.refresh_from_db()
+        self.assertEqual(bal.starting_balance, Decimal("750"))
+        self.assertIsNotNone(bal.opening_confirmed_at)
+        self.assertEqual(bal.opening_confirmed_by_id, user.id)
+        self.assertEqual(bal.computed_flow, Decimal("200"))
+        self.assertEqual(bal.computed_ending, Decimal("950"))
+
+    def test_recompute_does_not_overwrite_confirmed_starting_balance(self):
+        from apps.users.models import TenantUser
+
+        user, _ = TenantUser.objects.get_or_create(
+            email="confirmer2@example.com",
+            defaults={"is_active": True},
+        )
+        period = get_or_create_period(2026, 5)
+        confirm_opening_balance(
+            period,
+            self.account,
+            user,
+            starting_balance=Decimal("0"),
+        )
+        recompute_period_balances(period)
+        bal = PeriodAccountBalance.objects.get(period=period, account=self.account)
+        self.assertEqual(bal.starting_balance, Decimal("0"))
 
     # ---------------- setup wizard gating ----------------
 

@@ -100,6 +100,14 @@ class PeriodAccountBalance(BaseModel):
     )
     is_balanced = models.BooleanField(default=False)
     last_reconciled_at = models.DateTimeField(null=True, blank=True)
+    opening_confirmed_at = models.DateTimeField(null=True, blank=True)
+    opening_confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="confirmed_period_openings",
+    )
     notes = models.TextField(blank=True)
 
     class Meta:
@@ -112,6 +120,19 @@ class PeriodAccountBalance(BaseModel):
     def __str__(self) -> str:
         flag = "OK" if self.is_balanced else "MISMATCH"
         return f"{self.period.label} {self.account.name}: {flag}"
+
+    @property
+    def is_opening_confirmed(self) -> bool:
+        return self.opening_confirmed_at is not None
+
+
+class Daybook(FiscalPeriod):
+    """Proxy of `FiscalPeriod` exposing the monthly multi-account daybook view in admin."""
+
+    class Meta:
+        proxy = True
+        verbose_name = "Daybook"
+        verbose_name_plural = "Daybooks"
 
 
 class AccountingExport(BaseModel):
