@@ -46,6 +46,11 @@ def get_sidebar_navigation(request):
                     "link": reverse_lazy("admin:accounting_fiscalperiod_changelist"),
                 },
                 {
+                    "title": "Daybooks",
+                    "icon": "book",
+                    "link": reverse_lazy("admin:accounting_daybook_changelist"),
+                },
+                {
                     "title": "Period balances",
                     "icon": "monitoring",
                     "link": reverse_lazy(
@@ -102,6 +107,12 @@ def get_sidebar_navigation(request):
                     "title": "Users",
                     "icon": "manage_accounts",
                     "link": reverse_lazy("admin:users_tenantuser_changelist"),
+                    "permission": _is_public_super_admin,
+                },
+                {
+                    "title": "Tenant permissions",
+                    "icon": "admin_panel_settings",
+                    "link": reverse_lazy("admin:permissions_usertenantpermissions_changelist"),
                     "permission": _is_public_super_admin,
                 },
             ],
