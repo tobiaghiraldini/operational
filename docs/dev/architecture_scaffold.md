@@ -8,8 +8,8 @@ Summary of the scaffolded apps and high-level architecture (see [operational_pro
 
 | App | Role | Models |
 |-----|------|--------|
-| `apps.customers` | Tenant registry, Client, Domain | Client, Domain |
-| `apps.subscriptions` | Subscription tiers, auth (future) | SubscriptionTier |
+| `apps.tenants` | Tenant registry, Tenant, Domain | Tenant, Domain |
+| `apps.subscriptions` | Subscription tiers | SubscriptionTier |
 | `apps.core` | Shared code, utils, orchestration | (none) |
 | `apps.ai` | AI / MCP (future) | (none) |
 | `apps.api` | REST API entrypoint | (none) |

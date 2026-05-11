@@ -60,7 +60,7 @@ Signin, Signup with levels of subscriptions that determine which features users 
 
 invite other users to own organization. users roles within organizations.
 
-super admin role that can impersonate other tenants.
+super admin role in the public tenant that can impersonate other tenants.
 
 oauth with selected providers.
 
