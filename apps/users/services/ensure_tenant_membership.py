@@ -18,7 +18,6 @@ def ensure_tenant_membership(*, user, tenant, is_staff: bool, is_superuser: bool
 
     if not user.tenants.filter(pk=tenant.pk).exists():
         tenant.add_user(user, is_staff=is_staff, is_superuser=is_superuser)
-        return
 
     with tenant_context(tenant):
         tenant_perms, _ = UserTenantPermissions.objects.get_or_create(profile=user)

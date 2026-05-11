@@ -9,6 +9,7 @@ from django.urls import path, reverse
 from django.utils.html import format_html
 from unfold.admin import ModelAdmin
 from tenant_users.constants import TENANT_CACHE_NAME
+from tenant_users.permissions.models import UserTenantPermissions
 
 from apps.core.admin_mixins import PublicSchemaOnlyAdminMixin
 from apps.tenants.models import Tenant
@@ -263,3 +264,15 @@ class TenantUserAdmin(PublicSchemaOnlyAdminMixin, ModelAdmin):
             "media": self.media + form.media,
         }
         return TemplateResponse(request, "admin/auth/user/change_password.html", context)
+
+
+@admin.register(UserTenantPermissions)
+class UserTenantPermissionsAdmin(PublicSchemaOnlyAdminMixin, ModelAdmin):
+    """Inspect tenant-scoped auth flags and model permissions per user."""
+
+    list_display = ("profile", "is_staff", "is_superuser", "modified_at")
+    list_filter = ("is_staff", "is_superuser")
+    search_fields = ("profile__email",)
+    raw_id_fields = ("profile",)
+    readonly_fields = ("created_at", "modified_at")
+    filter_horizontal = ("groups", "user_permissions")
