@@ -1,0 +1,38 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block breadcrumbs %}
+<div class="px-4">
+  <div class="text-sm text-base-500">
+    <a href="{% url 'admin:index' %}">{% trans "Home" %}</a>
+    &rsaquo;
+    <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+    &rsaquo;
+    <a href="{% url 'admin:documents_documentfolder_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+    &rsaquo;
+    <span class="text-font-important-light dark:text-font-important-dark">{{ title }}</span>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main" class="max-w-xl">
+  <h1 class="text-xl font-semibold mb-2">{{ title }}</h1>
+  <p class="text-sm text-base-600 mb-4">
+    Path: <code class="bg-base-100 px-1 rounded">{{ folder.path }}</code>
+    · PDFs only · duplicates (same file hash) are skipped.
+  </p>
+  <form method="post" enctype="multipart/form-data" class="space-y-4">
+    {% csrf_token %}
+    <div>
+      <label for="id_zip" class="block text-sm font-medium mb-1">ZIP archive</label>
+      <input id="id_zip" name="zip" type="file" accept=".zip,application/zip" required
+             class="block w-full text-sm text-base-700 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-primary-600 file:text-white">
+    </div>
+    <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded text-sm font-medium">
+      Upload and queue
+    </button>
+    <a href="{% url 'admin:documents_documentfolder_change' folder.pk %}" class="ml-3 text-sm text-primary-600 hover:underline">Back to folder</a>
+  </form>
+</div>
+{% endblock %}
