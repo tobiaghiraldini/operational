@@ -74,3 +74,42 @@ class PublicSchemaOnlyAdminMixin:
         if not self._is_public_schema(request):
             return False
         return super().has_delete_permission(request, obj=obj)
+
+
+class SettlementAllocationUsesParentPermissionsMixin:
+    """For `InvoiceSettlementAllocation` inlines on Invoice / Transaction admin.
+
+    `DefaultBusinessPermissionsPolicy` grants all permissions for whitelisted app
+    labels at membership grant time only. New models (e.g. after a migration)
+    therefore miss from older staff rows until `sync_default_business_permissions`
+    is run or membership is re-saved. This mixin mirrors parent change access so
+    users who can edit the invoice or bank line can manage settlement rows.
+    """
+
+    def _parent_change_allowed(self, request, obj):
+        if obj is None:
+            return False
+        parent_admin = self.admin_site._registry.get(self.parent_model)
+        if parent_admin is None:
+            return False
+        return parent_admin.has_change_permission(request, obj)
+
+    def has_view_permission(self, request, obj=None):
+        if self._parent_change_allowed(request, obj):
+            return True
+        return super().has_view_permission(request, obj)
+
+    def has_change_permission(self, request, obj=None):
+        if self._parent_change_allowed(request, obj):
+            return True
+        return super().has_change_permission(request, obj)
+
+    def has_add_permission(self, request, obj=None):
+        if self._parent_change_allowed(request, obj):
+            return True
+        return super().has_add_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        if self._parent_change_allowed(request, obj):
+            return True
+        return super().has_delete_permission(request, obj)
