@@ -9,8 +9,8 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
 from django.http import HttpResponse
 from django.urls import reverse
-from django_drf_filepond.api import store_upload
 from django_drf_filepond.models import TemporaryUpload
+from apps.files.services.promote_upload import finalize_invoice_upload
 from django_celery_results.models import TaskResult
 import json
 from datetime import datetime
@@ -20,6 +20,28 @@ from .serializers import InvoiceSerializer, InvoiceExtractionSerializer
 from .tasks import process_single_invoice
 from apps.vendors.models import Vendor, PaymentMethod
 from apps.customers.models import Customer
+from apps.invoices.currency_lookup import resolve_invoice_currency
+from apps.invoices.payment_transaction import (
+    coerce_date as _coerce_payment_date,
+    sync_invoice_payment_transaction,
+)
+
+
+def _apply_verify_payment_from_post(invoice, post_data) -> None:
+    """Set ``payment_date`` / ``paid_override`` from the verify form (not saved)."""
+    raw = (post_data.get("payment_date") or "").strip()
+    paid_on = post_data.get("paid_override") == "on"
+    if raw:
+        d = _coerce_payment_date(raw)
+        if d:
+            invoice.payment_date = d
+            invoice.paid_override = False
+    elif paid_on:
+        invoice.payment_date = None
+        invoice.paid_override = True
+    else:
+        invoice.payment_date = None
+        invoice.paid_override = False
 
 
 class InvoiceViewSet(TenantSafeQuerysetMixin, viewsets.ModelViewSet):
@@ -30,6 +52,13 @@ class InvoiceViewSet(TenantSafeQuerysetMixin, viewsets.ModelViewSet):
     search_fields = ['invoice_number', 'vendor__name', 'original_filename']
     ordering_fields = ['invoice_date', 'due_date', 'total_amount', 'created_at']
     ordering = ['-invoice_date']
+
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related("vendor", "customer", "payment_method", "currency")
+        )
 
 
 class InvoiceExtractionViewSet(TenantSafeQuerysetMixin, viewsets.ModelViewSet):
@@ -45,7 +74,9 @@ class InvoiceExtractionViewSet(TenantSafeQuerysetMixin, viewsets.ModelViewSet):
 @login_required(login_url='/users/signin/')
 def invoice_list(request):
     """List view for invoices with filtering and grouping."""
-    invoices = Invoice.objects.select_related('vendor', 'payment_method').all()
+    invoices = Invoice.objects.select_related(
+        "vendor", "payment_method", "currency"
+    ).all()
     
     # Get filter parameters
     invoice_type_filter = request.GET.get('type')
@@ -161,6 +192,8 @@ def invoice_upload(request):
     """Upload view for invoices using FilePond."""
     context = {
         'segment': 'invoices',
+        'invoice_type_choices': Invoice.INVOICE_TYPE_CHOICES,
+        'document_kind_choices': Invoice.DOCUMENT_KIND_CHOICES,
     }
     return render(request, 'invoices/upload.html', context)
 
@@ -261,7 +294,10 @@ def invoice_verify(request, pk):
                 except ValueError:
                     pass
             
-            invoice.currency = request.POST.get('extracted_currency', invoice.currency)
+            if "extracted_currency" in request.POST:
+                invoice.currency = resolve_invoice_currency(
+                    request.POST.get("extracted_currency")
+                )
             
             vat_percentage_str = request.POST.get('extracted_vat_percentage')
             if vat_percentage_str:
@@ -314,12 +350,15 @@ def invoice_verify(request, pk):
                     invoice.payment_method = PaymentMethod.objects.get(pk=payment_method_id)
                 except PaymentMethod.DoesNotExist:
                     pass
-            
+
+            _apply_verify_payment_from_post(invoice, request.POST)
+
             invoice.status = 'completed'
             invoice.needs_manual_review = False
             invoice.save()
-            
-            return redirect('invoice_list')
+            sync_invoice_payment_transaction(invoice, created_by=request.user)
+
+            return redirect('invoices:invoice_list')
         
         elif action == 'save':
             # Save changes without changing status to completed
@@ -351,7 +390,10 @@ def invoice_verify(request, pk):
                 except ValueError:
                     pass
             
-            invoice.currency = request.POST.get('extracted_currency', invoice.currency)
+            if "extracted_currency" in request.POST:
+                invoice.currency = resolve_invoice_currency(
+                    request.POST.get("extracted_currency")
+                )
             
             vat_percentage_str = request.POST.get('extracted_vat_percentage')
             if vat_percentage_str:
@@ -404,11 +446,14 @@ def invoice_verify(request, pk):
                     invoice.payment_method = PaymentMethod.objects.get(pk=payment_method_id)
                 except PaymentMethod.DoesNotExist:
                     pass
-            
+
+            _apply_verify_payment_from_post(invoice, request.POST)
+
             # Keep status as is (don't change to completed)
             invoice.save()
-            
-            return redirect('invoice_verify', pk=invoice.pk)
+            sync_invoice_payment_transaction(invoice, created_by=request.user)
+
+            return redirect('invoices:invoice_verify', pk=invoice.pk)
     
     # Get extraction data if available
     extraction = None
@@ -555,39 +600,43 @@ def process_upload(request):
         return Response({'success': False, 'error': 'upload_id is required'}, status=400)
     
     try:
-        # Get the temporary upload
-        temp_upload = TemporaryUpload.objects.get(upload_id=upload_id)
-        
-        # Store the upload to permanent location
-        stored_upload = store_upload(
-            upload_id,
-            destination_file_path=f'invoices/{temp_upload.upload_name}'
+        classification_hints = request.data.get("classification_hints")
+        if classification_hints is not None and not isinstance(classification_hints, dict):
+            classification_hints = None
+        classification_hints = dict(classification_hints or {})
+
+        raw_invoice_type = classification_hints.get("invoice_type") or request.data.get(
+            "invoice_type"
         )
-        
-        if not stored_upload:
-            return Response({'success': False, 'error': 'Failed to store upload'}, status=500)
-        
-        # Get the file path - stored_upload has different attributes depending on storage backend
-        if hasattr(stored_upload, 'file_path'):
-            file_path = stored_upload.file_path
-        elif hasattr(stored_upload, 'upload') and hasattr(stored_upload.upload, 'path'):
-            file_path = stored_upload.upload.path
-        else:
-            # Fallback: construct path from stored location
-            from django.conf import settings
-            import os
-            file_path = os.path.join(
-                settings.DJANGO_DRF_FILEPOND_FILE_STORE_PATH,
-                f'invoices/{temp_upload.upload_name}'
-            )
-        
-        # Queue the processing task with user_id for company matching
+        invoice_type_hint = None
+        if isinstance(raw_invoice_type, str) and raw_invoice_type.strip().lower() in (
+            "received",
+            "emitted",
+        ):
+            invoice_type_hint = raw_invoice_type.strip().lower()
+
+        promoted = finalize_invoice_upload(
+            upload_id, invoice_type=invoice_type_hint
+        )
+
+        raw_vendor = request.data.get("vendor_id")
+        vendor_id = None
+        if raw_vendor not in (None, "", "null"):
+            try:
+                vendor_id = int(raw_vendor)
+            except (TypeError, ValueError):
+                vendor_id = None
+        if vendor_id is not None:
+            classification_hints["vendor_id"] = vendor_id
+
         result = process_single_invoice.delay(
-            file_path,
-            temp_upload.upload_name,
-            vendor_id=None,
+            promoted.file_path,
+            promoted.original_filename,
+            vendor_id=vendor_id,
             user_id=request.user.id if request.user.is_authenticated else None,
+            document_file_id=promoted.document_file.pk,
             schema_name=getattr(request.tenant, "schema_name", None),
+            classification_hints=classification_hints,
         )
         
         # Return task ID - frontend can poll for completion
@@ -603,6 +652,53 @@ def process_upload(request):
         return Response({'success': False, 'error': 'Upload not found'}, status=404)
     except Exception as e:
         return Response({'success': False, 'error': str(e)}, status=500)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def upload_invoice_zip_batch(request):
+    """Upload a ZIP of PDFs; each file becomes a ``DocumentFile`` and is queued for extraction."""
+    from django.db import connection
+    from django_tenants.utils import get_public_schema_name
+
+    from apps.documents.models import DocumentFolder
+    from apps.files.services.zip_invoice_batch import ingest_zip_invoice_pdfs
+
+    zf = request.FILES.get("zip")
+    if not zf:
+        return Response({"success": False, "error": "zip file is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    from django.conf import settings as dj_settings
+
+    cap = getattr(dj_settings, "INVOICE_ZIP_MAX_BYTES", 50 * 1024 * 1024)
+    size = getattr(zf, "size", None) or 0
+    if size and size > cap:
+        return Response(
+            {"success": False, "error": f"ZIP exceeds maximum size ({cap} bytes)."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    folder = None
+    raw_folder = request.POST.get("folder_id") or request.data.get("folder_id")
+    if raw_folder not in (None, "", "null"):
+        try:
+            folder = DocumentFolder.objects.get(pk=int(raw_folder))
+        except (ValueError, DocumentFolder.DoesNotExist):
+            folder = None
+
+    schema_name = None
+    if connection.schema_name != get_public_schema_name():
+        schema_name = connection.schema_name
+
+    result = ingest_zip_invoice_pdfs(
+        zf,
+        folder=folder,
+        user_id=request.user.id if request.user.is_authenticated else None,
+        schema_name=schema_name,
+    )
+    if not result.get("success"):
+        return Response(result, status=status.HTTP_400_BAD_REQUEST)
+    return Response(result, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
@@ -633,7 +729,7 @@ def check_task_status(request, task_id):
                     invoice_id = parsed.get('invoice_id') if isinstance(parsed, dict) else None
                 except (json.JSONDecodeError, TypeError):
                     pass
-            redirect_url = reverse('invoice_verify', args=[invoice_id]) if invoice_id else reverse('invoice_list')
+            redirect_url = reverse('invoices:invoice_verify', args=[invoice_id]) if invoice_id else reverse('invoices:invoice_list')
             context = {
                 'status': task_result.status,
                 'task_id': task_id,

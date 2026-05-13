@@ -24,11 +24,11 @@ from apps.accounting.services.balance import (
     recompute_period_balances,
 )
 from apps.accounting.services.daybook import build_daybook
-from apps.accounting.services.exports import build_monthly_workbook
+from apps.accounting.services.exports import build_monthly_workbook, build_yearly_workbook
 from apps.accounting.services.period import get_or_create_period
 from apps.accounting.services.period_feed import build_period_feed
 from apps.accounting.setup import is_setup_completed
-from apps.money.models import Account, Currency, Transaction
+from apps.money.models import Account, Currency, InvoiceSettlementAllocation, Transaction
 
 
 class AccountingSmokeTests(FastTenantTestCase):
@@ -65,6 +65,7 @@ class AccountingSmokeTests(FastTenantTestCase):
         )
 
     def _make_tx(self, **kwargs):
+        invoice = kwargs.pop("invoice", None)
         defaults = {
             "date": dt.date(2026, 5, 5),
             "currency": self._eur,
@@ -73,7 +74,15 @@ class AccountingSmokeTests(FastTenantTestCase):
             "direction": Transaction.DIRECTION_IN,
         }
         defaults.update(kwargs)
-        return Transaction.objects.create(**defaults)
+        tx = Transaction.objects.create(**defaults)
+        if invoice is not None:
+            InvoiceSettlementAllocation.objects.create(
+                transaction=tx,
+                invoice=invoice,
+                amount_settlement=tx.amount,
+                amount_invoice=tx.amount,
+            )
+        return tx
 
     # ---------------- signed amount ----------------
 
@@ -166,6 +175,26 @@ class AccountingSmokeTests(FastTenantTestCase):
             ],
         )
 
+    def test_yearly_workbook_same_sheets_and_month_column_on_daybook(self):
+        self._make_tx(date=dt.date(2026, 3, 15), amount=Decimal("50"))
+        self._make_tx(date=dt.date(2026, 11, 20), amount=Decimal("25"))
+        buffer: BytesIO = build_yearly_workbook(2026)
+        wb = load_workbook(buffer)
+        self.assertEqual(
+            wb.sheetnames,
+            [
+                "Daybook",
+                "Income & Expenses",
+                "Balance",
+                "Issued Invoices",
+                "Received Invoices",
+                "Bank Lines",
+            ],
+        )
+        daybook = wb["Daybook"]
+        headers = [daybook.cell(row=1, column=c).value for c in range(1, 12)]
+        self.assertEqual(headers[1], "Month")
+
     # ---------------- period feed (daybook admin view) ----------------
 
     def test_build_period_feed_includes_transactions_and_unpaid_invoices(self):
@@ -177,7 +206,7 @@ class AccountingSmokeTests(FastTenantTestCase):
             invoice_date=dt.date(2026, 5, 4),
             due_date=dt.date(2026, 5, 30),
             total_amount=Decimal("500"),
-            currency="EUR",
+            currency=self._eur,
             original_filename="inv1.pdf",
             file_path="invoices/inv1.pdf",
         )
@@ -186,7 +215,7 @@ class AccountingSmokeTests(FastTenantTestCase):
             invoice_date=dt.date(2026, 5, 6),
             due_date=dt.date(2026, 5, 30),
             total_amount=Decimal("250"),
-            currency="EUR",
+            currency=self._eur,
             original_filename="inv2.pdf",
             file_path="invoices/inv2.pdf",
         )

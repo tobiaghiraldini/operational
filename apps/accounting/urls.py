@@ -53,6 +53,11 @@ urlpatterns = [
         views.export_period,
         name="export_period",
     ),
+    path(
+        "periods/<int:year>/export-year.xlsx",
+        views.export_year,
+        name="export_year",
+    ),
     # Filterable Daybook (cross-period)
     path("daybook/", views.daybook, name="daybook"),
     # Imports

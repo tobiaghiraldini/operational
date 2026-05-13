@@ -18,6 +18,7 @@ from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from unfold.admin import ModelAdmin, TabularInline
 
 from apps.accounting.models import (
@@ -193,9 +194,9 @@ class DaybookAdmin(TenantSchemaOnlyAdminMixin, ChangelistMetricsMixin, ModelAdmi
     def balanced_flag(self, obj):
         unbalanced = obj._unbalanced_count or 0
         if (obj._account_count or 0) == 0:
-            return format_html('<span class="text-base-500">no accounts</span>')
+            return mark_safe('<span class="text-base-500">no accounts</span>')
         if unbalanced == 0:
-            return format_html('<span class="text-green-600">OK</span>')
+            return mark_safe('<span class="text-green-600">OK</span>')
         return format_html(
             '<span class="text-red-600">{} mismatch{}</span>',
             unbalanced,

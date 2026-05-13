@@ -8,17 +8,19 @@ from typing import Dict, Optional, List, Tuple
 from django.db import transaction as db_transaction
 from thefuzz import fuzz
 
-from apps.core.models import CompanyInformation
 from apps.invoices.models import InvoiceTemplate, Invoice
+from apps.organizations.models import Organization
 
 
-def fuzzy_match_company(name: str, company_info: CompanyInformation, threshold: int = 85) -> Tuple[bool, int]:
+def fuzzy_match_company(
+    name: str, company_info: Optional[Organization], threshold: int = 85
+) -> Tuple[bool, int]:
     """
     Perform fuzzy string matching between a name and company information.
     
     Args:
         name: Name to match against
-        company_info: CompanyInformation instance
+        company_info: Organization (tenant company profile) instance
         threshold: Minimum similarity score (0-100) to consider a match
         
     Returns:
@@ -44,13 +46,13 @@ def fuzzy_match_company(name: str, company_info: CompanyInformation, threshold: 
     return is_match, best_score
 
 
-def match_company_entities(text: str, company_info: Optional[CompanyInformation]) -> Dict:
+def match_company_entities(text: str, company_info: Optional[Organization]) -> Dict:
     """
     Extract and match company-like entities from text against company information.
     
     Args:
         text: Text to search for company entities
-        company_info: CompanyInformation to match against (optional)
+        company_info: Organization (tenant company profile) to match against (optional)
         
     Returns:
         Dictionary with matched entities and their positions
@@ -95,15 +97,15 @@ def match_company_entities(text: str, company_info: Optional[CompanyInformation]
 
 def identify_issuer_receiver(
     extracted_data: Dict,
-    company_info: Optional[CompanyInformation],
-    spatial_hints: Optional[Dict] = None
+    company_info: Optional[Organization],
+    spatial_hints: Optional[Dict] = None,
 ) -> Dict:
     """
     Identify invoice issuer and receiver using company information and spatial hints.
     
     Args:
         extracted_data: Data extracted from invoice (vendor_name, etc.)
-        company_info: User's company information
+        company_info: Organization (tenant company profile, optional)
         spatial_hints: Optional spatial information (top_left, top_right, etc.)
         
     Returns:
@@ -140,7 +142,7 @@ def identify_issuer_receiver(
     else:
         # Vendor doesn't match -> vendor is issuer, user is receiver
         result['issuer_name'] = vendor_name
-        result['receiver_name'] = customer_name or company_info.name
+        result['receiver_name'] = customer_name or company_info.display_name
         result['confidence'] = 'medium'
         result['reasoning'].append(
             f'Vendor name "{vendor_name}" does not match user company (similarity: {vendor_score}%)'
@@ -170,15 +172,15 @@ def identify_issuer_receiver(
 
 def validate_vendor_extraction(
     vendor_name: str,
-    company_info: Optional[CompanyInformation],
-    threshold: int = 85
+    company_info: Optional[Organization],
+    threshold: int = 85,
 ) -> Dict:
     """
     Validate that extracted vendor is not actually the user's company.
     
     Args:
         vendor_name: Extracted vendor name
-        company_info: User's company information
+        company_info: Organization (tenant company profile, optional)
         threshold: Fuzzy matching threshold (0-100)
         
     Returns:
@@ -207,11 +209,11 @@ def validate_vendor_extraction(
     if is_match:
         return {
             'is_valid': False,
-            'reason': f'Vendor name "{vendor_name}" matches user company "{company_info.name}" (similarity: {similarity}%) - likely receiver, not vendor',
+            'reason': f'Vendor name "{vendor_name}" matches tenant company "{company_info.display_name}" (similarity: {similarity}%) - likely receiver, not vendor',
             'needs_review': True,
             'confidence': 'high',
             'similarity_score': similarity,
-            'matched_company': company_info.name
+            'matched_company': company_info.display_name,
         }
     
     # Check VAT ID if available
@@ -233,20 +235,23 @@ def validate_vendor_extraction(
     }
 
 
-def get_user_company_info(user) -> Optional[CompanyInformation]:
-    """
-    Get active company information for a user.
-    
-    Args:
-        user: User instance
-        
-    Returns:
-        CompanyInformation instance or None
-    """
-    try:
-        return CompanyInformation.objects.filter(user=user, is_active=True).first()
-    except Exception:
+def get_tenant_company_info(tenant) -> Optional[Organization]:
+    """Return the optional Organization profile for this tenant (tenant schema)."""
+    if tenant is None:
         return None
+    from django.db import connection
+    from django_tenants.utils import get_public_schema_name
+
+    public = get_public_schema_name()
+    previous = connection.schema_name
+    try:
+        connection.set_schema(tenant.schema_name, include_public=False)
+        return Organization.objects.filter(tenant_id=tenant.pk).first()
+    finally:
+        if previous == public:
+            connection.set_schema_to_public()
+        else:
+            connection.set_schema(previous, include_public=False)
 
 
 def find_invoice_template(
@@ -416,7 +421,7 @@ def record_payment(
     """
     from django.utils import timezone
 
-    from apps.money.models import Currency, Transaction
+    from apps.money.models import InvoiceSettlementAllocation, Transaction
 
     payment_date = date or timezone.localdate()
     payment_amount = (
@@ -425,10 +430,7 @@ def record_payment(
     if payment_amount <= 0:
         raise ValueError("Payment amount must be greater than zero.")
 
-    currency = (
-        Currency.objects.filter(code=invoice.currency).first()
-        or account.currency
-    )
+    currency = invoice.currency or account.currency
     direction = (
         Transaction.DIRECTION_IN
         if invoice.invoice_type == "emitted"
@@ -446,7 +448,6 @@ def record_payment(
         amount=payment_amount,
         currency=currency,
         account=account,
-        invoice=invoice,
         customer=invoice.customer,
         vendor=invoice.vendor,
         document=invoice.document_file,
@@ -454,6 +455,13 @@ def record_payment(
         description=description or f"Payment for invoice {invoice.invoice_number}",
         reference=reference or invoice.invoice_number,
         created_by=created_by,
+    )
+
+    InvoiceSettlementAllocation.objects.create(
+        transaction=transaction,
+        invoice=invoice,
+        amount_settlement=payment_amount,
+        amount_invoice=payment_amount,
     )
 
     if not invoice.payment_date and invoice.payments_total >= invoice.total_amount:

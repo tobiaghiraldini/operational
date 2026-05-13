@@ -30,6 +30,7 @@ class PaymentMethod(BaseModel):
     PAYMENT_METHOD_CHOICES = [
         ('credit_card', 'Credit Card'),
         ('bank_transfer', 'Bank Transfer'),
+        ('f24', 'F24'),
         ('paypal', 'PayPal'),
         ('cash', 'Cash'),
         ('check', 'Check'),
@@ -40,11 +41,24 @@ class PaymentMethod(BaseModel):
     name = models.CharField(max_length=100, help_text="Display name for payment method")
     description = models.TextField(blank=True, help_text="Additional description")
     is_active = models.BooleanField(default=True, help_text="Whether payment method is active")
-    
+    is_default = models.BooleanField(
+        default=False,
+        help_text="Preferred method when creating transactions from invoices without explicit choice.",
+    )
+    defer_bank_transaction = models.BooleanField(
+        default=False,
+        help_text="When true, automatic invoice payment posting skips creating a bank transaction until the statement line is booked (e.g. credit card batch settlement).",
+    )
+
     class Meta:
         ordering = ['name']
         verbose_name = "Payment Method"
         verbose_name_plural = "Payment Methods"
     
+    def save(self, *args, **kwargs):
+        if self.is_default:
+            PaymentMethod.objects.filter(is_default=True).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.name

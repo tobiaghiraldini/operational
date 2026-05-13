@@ -14,9 +14,9 @@ from datetime import date as date_cls
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.files.storage import default_storage
 from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -39,7 +39,10 @@ from apps.accounting.services.daybook import (
     build_daybook,
     daybook_with_running_balance,
 )
-from apps.accounting.services.exports import build_workbook_response
+from apps.accounting.services.exports import (
+    build_workbook_response,
+    build_yearly_workbook_response,
+)
 from apps.accounting.services.income_statement import build_income_statement
 from apps.accounting.services.monthly_close import (
     PeriodNotBalancedError,
@@ -403,6 +406,12 @@ def export_period(request: HttpRequest, year: int, month: int) -> HttpResponse:
     return build_workbook_response(period, user=request.user)
 
 
+@accounting_setup_required
+def export_year(request: HttpRequest, year: int) -> HttpResponse:
+    """Calendar-year XLSX (Jan–Dec) for the accountant."""
+    return build_yearly_workbook_response(year, user=request.user)
+
+
 # ---------------------------------------------------------------------------
 # Bank statement upload
 # ---------------------------------------------------------------------------
@@ -418,25 +427,32 @@ def import_bank_statement_view(request: HttpRequest) -> HttpResponse:
     if request.method == "POST" and form.is_valid():
         upload = form.cleaned_data["file"]
         account = form.cleaned_data["account"]
-        folder, _ = DocumentFolder.objects.get_or_create(
-            path="bank-statements", defaults={"name": "Bank statements"}
-        )
-        saved_path = default_storage.save(
-            f"bank-statements/{upload.name}", upload
-        )
-        document = DocumentFile.objects.create(
-            folder=folder,
-            filename=upload.name,
-            file_path=saved_path,
-            file_size=upload.size,
-            file_type=upload.name.rsplit(".", 1)[-1].lower(),
-        )
-        statement = import_bank_statement(account=account, document=document)
-        stats = auto_match_lines(statement)
-        messages.success(
-            request,
-            f"Imported {statement.lines.count()} lines, {stats['matched']} matched automatically.",
-        )
+        max_bytes = getattr(settings, "INVOICE_MAX_UPLOAD_BYTES", 25 * 1024 * 1024)
+        if upload.size > max_bytes:
+            form.add_error(
+                "file",
+                f"File exceeds maximum upload size ({max_bytes} bytes).",
+            )
+        else:
+            folder, _ = DocumentFolder.objects.get_or_create(
+                path="bank-statements", defaults={"name": "Bank statements"}
+            )
+            document = DocumentFile(
+                folder=folder,
+                filename=upload.name,
+                file_path="",
+                file_type=upload.name.rsplit(".", 1)[-1].lower(),
+                status="pending",
+            )
+            document.file.save(upload.name, upload, save=False)
+            document.recompute_file_metadata()
+            document.save()
+            statement = import_bank_statement(account=account, document=document)
+            stats = auto_match_lines(statement)
+            messages.success(
+                request,
+                f"Imported {statement.lines.count()} lines, {stats['matched']} matched automatically.",
+            )
 
     return render(
         request,

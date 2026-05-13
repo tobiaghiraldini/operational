@@ -8,6 +8,7 @@ from import_export.widgets import (
 
 from apps.customers.models import Customer
 from apps.invoices.models import Invoice
+from apps.money.models import Currency
 from apps.vendors.models import Vendor
 
 
@@ -56,7 +57,11 @@ class InvoiceResource(resources.ModelResource):
         column_name="Gross",
         widget=DecimalWidget(),
     )
-    currency = fields.Field(attribute="currency", column_name="Currency")
+    currency = fields.Field(
+        attribute="currency",
+        column_name="Currency",
+        widget=ForeignKeyWidget(Currency, field="code"),
+    )
     status = fields.Field(attribute="status", column_name="Status")
 
     class Meta:

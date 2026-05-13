@@ -3,7 +3,6 @@ from decimal import Decimal
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import BaseModel
 
@@ -89,6 +88,10 @@ class Account(BaseModel):
     )
     opening_date = models.DateField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
+    is_default = models.BooleanField(
+        default=False,
+        help_text="Default bank/cash account for automated postings (e.g. invoice payments).",
+    )
     notes = models.TextField(blank=True)
 
     class Meta:
@@ -99,6 +102,11 @@ class Account(BaseModel):
 
     def __str__(self) -> str:
         return f"{self.name} ({self.get_kind_display()}, {self.currency.code})"
+
+    def save(self, *args, **kwargs):
+        if self.is_default:
+            Account.objects.filter(is_default=True).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
 
 
 class TransactionCategory(BaseModel):
@@ -262,7 +270,13 @@ class Transaction(BaseModel):
         blank=True,
         related_name="transactions",
     )
-
+    payment_method = models.ForeignKey(
+        'vendors.PaymentMethod',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="Payment method used",
+    )
     counterparty = models.CharField(
         max_length=255,
         blank=True,
@@ -273,13 +287,6 @@ class Transaction(BaseModel):
         max_length=100, blank=True, help_text="Bank reference, document #, etc."
     )
 
-    invoice = models.ForeignKey(
-        "invoices.Invoice",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="payments",
-    )
     customer = models.ForeignKey(
         "customers.Customer",
         on_delete=models.SET_NULL,
@@ -325,12 +332,22 @@ class Transaction(BaseModel):
         indexes = [
             models.Index(fields=["account", "date"]),
             models.Index(fields=["date", "direction"]),
-            models.Index(fields=["invoice"]),
         ]
 
     def __str__(self) -> str:
         sign = "+" if self.direction == self.DIRECTION_IN else "-"
-        return f"{self.date} {sign}{self.amount} {self.currency.code} {self.counterparty or self.description[:40]}"
+        desc = (self.counterparty or self.description or "").strip()
+        if len(desc) > 48:
+            desc = desc[:45] + "…"
+        bits = [f"{self.date} {sign}{self.amount} {self.currency.code}"]
+        account = getattr(self, "account", None)
+        if account is not None:
+            bits.append(account.name)
+        if self.reference:
+            bits.append(f"ref {self.reference}")
+        if desc:
+            bits.append(desc)
+        return " · ".join(bits)
 
     @property
     def signed_amount(self) -> Decimal:
@@ -346,3 +363,91 @@ class Transaction(BaseModel):
             if self.direction == self.DIRECTION_IN
             else -self.base_amount
         )
+
+    def settlement_allocated_total(self) -> Decimal:
+        """Sum of `amount_settlement` on linked invoice rows (transaction currency)."""
+        from django.db.models import Sum
+
+        agg = self.invoice_allocations.aggregate(t=Sum("amount_settlement"))
+        return agg["t"] or Decimal("0")
+
+    def settlement_allocation_gap(self) -> Decimal:
+        """Bank line amount minus allocated settlement portions (fees/rounding)."""
+        return self.amount - self.settlement_allocated_total()
+
+
+class InvoiceSettlementAllocation(BaseModel):
+    """Links one bank/cash `Transaction` to one `Invoice` with split amounts."""
+
+    transaction = models.ForeignKey(
+        Transaction,
+        on_delete=models.CASCADE,
+        related_name="invoice_allocations",
+    )
+    invoice = models.ForeignKey(
+        "invoices.Invoice",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="settlement_allocations",
+        help_text="Invoice this slice settles; leave empty for a fee/FX/rounding line.",
+    )
+    amount_settlement = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0"))],
+        help_text="Portion of this transaction in the transaction's currency (e.g. EUR bank line).",
+    )
+    amount_invoice = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0"))],
+        help_text="Slice in invoice currency when linked to an invoice; empty for fee-only lines.",
+    )
+    fx_rate = models.DecimalField(
+        max_digits=18,
+        decimal_places=8,
+        null=True,
+        blank=True,
+        help_text="Optional rate used between invoice currency and settlement currency.",
+    )
+    notes = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        db_table = "money_invoice_settlement_allocation"
+        verbose_name = "Invoice settlement allocation"
+        verbose_name_plural = "Invoice settlement allocations"
+        constraints = [
+            models.UniqueConstraint(
+                fields=("transaction", "invoice"),
+                name="uniq_settlement_tx_invoice",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["transaction"]),
+            models.Index(fields=["invoice"]),
+        ]
+
+    def __str__(self) -> str:
+        inv_part = str(self.invoice_id) if self.invoice_id else "fee"
+        return f"{self.transaction_id} → {inv_part}: {self.amount_settlement}"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.invoice_id:
+            if self.amount_invoice is None or self.amount_invoice < 0:
+                raise ValidationError(
+                    {"amount_invoice": "Invoice lines require a non-negative invoice amount."}
+                )
+        else:
+            if self.amount_invoice is not None:
+                raise ValidationError(
+                    {"amount_invoice": "Fee-only lines must not set an invoice currency amount."}
+                )
+            if self.amount_settlement is not None and self.amount_settlement < 0:
+                raise ValidationError(
+                    {"amount_settlement": "Settlement amount cannot be negative."}
+                )

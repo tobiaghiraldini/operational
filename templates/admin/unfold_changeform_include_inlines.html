@@ -1,0 +1,10 @@
+{# Extends Unfold's admin/change_form.html (first match in INSTALLED_APPS). #}
+{# Unfold skips all inlines when HX-Request is set unless a pagination query is present; #}
+{# that hides inlines on normal admin loads if any middleware/browser sends HX-Request. #}
+{% extends "admin/change_form.html" %}
+
+{% block inline_field_sets %}
+    {% for inline_admin_formset in inline_admin_formsets %}
+        {% include inline_admin_formset.opts.template %}
+    {% endfor %}
+{% endblock %}

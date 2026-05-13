@@ -9,7 +9,8 @@ from apps.accounting.models import FiscalPeriod, PeriodAccountBalance
 from apps.accounting.services.daybook import build_daybook
 from apps.accounting.services.period import period_date_range
 from apps.invoices.models import Invoice
-from apps.money.models import Transaction
+from apps.money.models import InvoiceSettlementAllocation, Transaction
+from apps.money.services.invoice_document_label import transaction_invoice_document_label
 
 
 ZERO = Decimal("0")
@@ -53,10 +54,16 @@ def build_period_feed(period: FiscalPeriod) -> PeriodFeed:
         build_daybook(date_from=date_from, date_to=date_to)
     )
 
-    paid_invoice_ids = {tx.invoice_id for tx in transactions if tx.invoice_id}
+    tx_ids = [tx.id for tx in transactions]
+    paid_invoice_ids = set(
+        InvoiceSettlementAllocation.objects.filter(
+            transaction_id__in=tx_ids,
+            invoice_id__isnull=False,
+        ).values_list("invoice_id", flat=True)
+    )
 
     invoices = list(
-        Invoice.objects.select_related("vendor", "customer")
+        Invoice.objects.select_related("vendor", "customer", "currency")
         .filter(invoice_date__gte=date_from, invoice_date__lte=date_to)
         .exclude(id__in=paid_invoice_ids)
         .order_by("invoice_date", "id")
@@ -93,7 +100,7 @@ def build_period_feed(period: FiscalPeriod) -> PeriodFeed:
                 {
                     "date": entry_date,
                     "kind": "transaction",
-                    "doc_no": tx.reference or (tx.invoice.invoice_number if tx.invoice_id else ""),
+                    "doc_no": transaction_invoice_document_label(tx),
                     "counterparty": _transaction_counterparty(tx),
                     "account_label": tx.account.name,
                     "account_id": tx.account_id,

@@ -37,7 +37,12 @@ class Invoice(BaseModel):
         validators=[MinValueValidator(0)],
         help_text="Total invoice amount"
     )
-    currency = models.CharField(max_length=3, default='EUR', help_text="Currency code (ISO 4217)")
+    currency = models.ForeignKey(
+        "money.Currency",
+        on_delete=models.PROTECT,
+        related_name="invoices",
+        help_text="Invoice currency (ISO 4217 row in money.Currency).",
+    )
     converted_amount = models.DecimalField(
         max_digits=12, 
         decimal_places=2, 
@@ -102,8 +107,8 @@ class Invoice(BaseModel):
     )
     
     # File information
-    original_filename = models.CharField(max_length=255, help_text="Original PDF filename")
-    file_path = models.CharField(max_length=500, help_text="Path to PDF file")
+    original_filename = models.CharField(max_length=255, help_text="Original PDF filename", blank=True, null=True)
+    file_path = models.CharField(max_length=500, help_text="Path to PDF file", blank=True, null=True)
     file_size = models.IntegerField(default=0, help_text="File size in bytes")
     
     # Processing status
@@ -150,6 +155,43 @@ class Invoice(BaseModel):
         related_name='invoices',
         help_text="Source document file this invoice was created from (if applicable)"
     )
+
+    DOCUMENT_KIND_CHOICES = [
+        ("invoice", "Invoice"),
+        ("credit_note", "Credit note"),
+        ("proforma", "Pro forma"),
+        ("other", "Other"),
+    ]
+
+    classification_hints = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Optional upload-time hints (invoice_type, vendor_id, currency, notes, …) for extraction.",
+    )
+    document_kind = models.CharField(
+        max_length=20,
+        choices=DOCUMENT_KIND_CHOICES,
+        default="invoice",
+        help_text="Kind of source document",
+    )
+    supplier_vat_id = models.CharField(max_length=64, blank=True)
+    customer_vat_id = models.CharField(max_length=64, blank=True)
+    purchase_order_reference = models.CharField(max_length=120, blank=True)
+    payment_reference = models.CharField(max_length=120, blank=True)
+    iban = models.CharField(max_length=34, blank=True)
+    bic = models.CharField(max_length=11, blank=True)
+    line_items = models.JSONField(default=list, blank=True)
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="uploaded_invoices",
+    )
+    paid_override = models.BooleanField(
+        default=False,
+        help_text="When true, treat invoice as paid without full payment transaction coverage.",
+    )
     
     class Meta:
         # Note: unique_together with nullable fields is tricky, consider using UniqueConstraint instead
@@ -163,12 +205,10 @@ class Invoice(BaseModel):
     
     @property
     def payments_total(self):
-        """Sum of `money.Transaction` rows linked to this invoice."""
+        """Sum of settlement allocations (`amount_invoice`) from linked transactions."""
         from decimal import Decimal
 
-        agg = self.payments.aggregate(
-            total=models.Sum("amount")
-        )
+        agg = self.settlement_allocations.aggregate(total=models.Sum("amount_invoice"))
         return agg["total"] or Decimal("0")
 
     @property
@@ -185,13 +225,15 @@ class Invoice(BaseModel):
         """
         if self.payments_total >= self.total_amount and self.total_amount > 0:
             return True
+        if self.paid_override:
+            return True
         return self.payment_date is not None
 
     @property
     def days_overdue(self):
         """Calculate days overdue if payment is late."""
         if self.is_paid:
-            return 0
+            return None
         from django.utils import timezone
         today = timezone.now().date()
         if today > self.due_date:
@@ -276,6 +318,13 @@ class InvoiceExtraction(BaseModel):
         blank=True,
         help_text="Confidence score (0-100) for extraction quality"
     )
+    field_confidence = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Per-field confidence scores (0-1), keyed by field name",
+    )
+    llm_model_name = models.CharField(max_length=120, blank=True)
+    prompt_version = models.CharField(max_length=64, blank=True)
     processed_at = models.DateTimeField(
         null=True, 
         blank=True,

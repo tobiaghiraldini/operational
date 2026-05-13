@@ -1,0 +1,20 @@
+---
+description: Never run destructive database commands without explicit user consent
+alwaysApply: true
+---
+
+# Database safety
+
+Do **not** run any of the following against the user’s real development or production database unless the user has **explicitly asked** for that operation in this conversation and understands the impact:
+
+- ORM bulk deletes: `Model.objects.all().delete()`, `.delete()` on large querysets, `QuerySet.delete()` in `shell`/`shell -c`, scripts, or migrations that wipe data
+- SQL `DROP`, `TRUNCATE`, `DELETE FROM` without a scoped, reviewed predicate
+- `flush`, `migrate --fake` / destructive migration experiments, or resetting migrations in a way that drops tables
+- `loaddata` that replaces existing rows without the user asking
+- Any `manage.py` command or script the user did not request that **mutates or destroys** persisted data
+
+**Allowed without extra confirmation:** read-only queries, `dumpdata`, `showmigrations`, `sqlmigrate` (read-only), tests that use a **dedicated test database**, and code changes that do not execute those operations.
+
+If debugging requires reproducible data, use a **throwaway database**, **test case fixtures**, or ask the user to run a specific command themselves after you provide it.
+
+If destructive work is truly required, state **exactly** what will be deleted or changed and wait for clear approval before running anything.

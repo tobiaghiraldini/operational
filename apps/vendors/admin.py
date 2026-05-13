@@ -27,14 +27,14 @@ class VendorAdmin(TenantSchemaOnlyAdminMixin, ModelAdmin):
 
 @admin.register(PaymentMethod)
 class PaymentMethodAdmin(TenantSchemaOnlyAdminMixin, ModelAdmin):
-    list_display = ['name', 'code', 'is_active', 'created_at']
-    list_filter = ['is_active', 'code']
+    list_display = ['name', 'code', 'is_active', 'is_default', 'created_at']
+    list_filter = ['is_active', 'is_default', 'code']
     search_fields = ['name', 'code', 'description']
     readonly_fields = ['created_at', 'updated_at']
     
     fieldsets = (
         ('Basic Information', {
-            'fields': ('code', 'name', 'description', 'is_active')
+            'fields': ('code', 'name', 'description', 'is_active', 'is_default')
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),

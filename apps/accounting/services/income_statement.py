@@ -1,7 +1,8 @@
-"""Income / expense aggregation by category for a fiscal period."""
+"""Income / expense aggregation by category for a fiscal period or date range."""
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import date as date_cls
 from decimal import Decimal
 
 from django.db.models import Sum
@@ -11,13 +12,13 @@ from apps.accounting.services.period import period_date_range
 from apps.money.models import Transaction
 
 
-def build_income_statement(period: FiscalPeriod) -> dict:
-    """Aggregate income/expense totals by category for `period`.
+def build_income_statement_for_range(
+    date_from: date_cls, date_to: date_cls
+) -> dict:
+    """Aggregate income/expense totals by category between `date_from` and `date_to` (inclusive).
 
-    Returns a dict with `income_by_category`, `expense_by_category`,
-    each a list of `{category, total}` rows; plus aggregate totals.
+    Returns the same shape as `build_income_statement`, with ``period`` set to ``None``.
     """
-    date_from, date_to = period_date_range(period)
     qs = (
         Transaction.objects.filter(date__gte=date_from, date__lte=date_to)
         .values("direction", "category__id", "category__name", "category__kind")
@@ -26,10 +27,20 @@ def build_income_statement(period: FiscalPeriod) -> dict:
     )
 
     income_rows: dict[int | None, dict] = defaultdict(
-        lambda: {"category_id": None, "name": "Uncategorized", "kind": None, "total": Decimal("0")}
+        lambda: {
+            "category_id": None,
+            "name": "Uncategorized",
+            "kind": None,
+            "total": Decimal("0"),
+        }
     )
     expense_rows: dict[int | None, dict] = defaultdict(
-        lambda: {"category_id": None, "name": "Uncategorized", "kind": None, "total": Decimal("0")}
+        lambda: {
+            "category_id": None,
+            "name": "Uncategorized",
+            "kind": None,
+            "total": Decimal("0"),
+        }
     )
 
     total_income = Decimal("0")
@@ -53,7 +64,9 @@ def build_income_statement(period: FiscalPeriod) -> dict:
             total_expense += row["total"] or Decimal("0")
 
     return {
-        "period": period,
+        "period": None,
+        "date_from": date_from,
+        "date_to": date_to,
         "income_by_category": sorted(
             income_rows.values(), key=lambda x: x["total"], reverse=True
         ),
@@ -64,3 +77,11 @@ def build_income_statement(period: FiscalPeriod) -> dict:
         "total_expense": total_expense,
         "net": total_income - total_expense,
     }
+
+
+def build_income_statement(period: FiscalPeriod) -> dict:
+    """Aggregate income/expense totals by category for `period`."""
+    date_from, date_to = period_date_range(period)
+    result = build_income_statement_for_range(date_from, date_to)
+    result["period"] = period
+    return result

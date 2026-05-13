@@ -31,6 +31,11 @@ class DefaultBusinessPermissionsPolicy:
     def grant(self, *, tenant_perms, is_staff: bool, is_superuser: bool) -> int:
         """Grant default model-level permissions to a tenant permission row.
 
+        Adds every Permission whose content type is in `APP_LABELS` (idempotent
+        for duplicates). Re-run after new models ship so existing staff pick up
+        new codenames, or use ``sync_default_business_permissions`` management
+        command.
+
         Returns number of permission objects considered for grant.
         """
         if not is_staff or is_superuser:

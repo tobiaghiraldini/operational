@@ -1,0 +1,9 @@
+<div class="rounded-xl border border-slate-200 bg-white p-4 text-sm">
+  {% if status == 'SUCCESS' %}
+    <p class="text-emerald-700">Done. Redirecting…</p>
+  {% elif status == 'FAILURE' %}
+    <p class="text-red-700">{{ error|default:"Task failed" }}</p>
+  {% else %}
+    <p class="text-slate-600">Status: {{ status }} (task {{ task_id }})</p>
+  {% endif %}
+</div>

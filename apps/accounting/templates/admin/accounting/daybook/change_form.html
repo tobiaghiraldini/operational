@@ -61,7 +61,11 @@
         </form>
         <a href="{% url 'accounting:export_period' year=period.year month=period.month %}"
            class="border border-base-300 dark:border-base-700 px-3 py-2 text-sm rounded-default hover:bg-base-100 dark:hover:bg-base-800">
-          Export XLSX
+          Export month XLSX
+        </a>
+        <a href="{% url 'accounting:export_year' year=period.year %}"
+           class="border border-base-300 dark:border-base-700 px-3 py-2 text-sm rounded-default hover:bg-base-100 dark:hover:bg-base-800">
+          Export year XLSX
         </a>
         {% if period.status == 'open' %}
           <form method="post" action="{% url 'accounting:close_period' year=period.year month=period.month %}" class="inline">

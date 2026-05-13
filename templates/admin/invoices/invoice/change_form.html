@@ -1,0 +1,30 @@
+{% extends "admin/unfold_changeform_include_inlines.html" %}
+{# Bank settlement inline is rendered after Financial Information (see inline_field_sets). #}
+
+{% block field_sets %}
+    {% with has_conditional_display=adminform.model_admin.conditional_fields %}
+        {% for fieldset in adminform %}
+            {% if "tab" not in fieldset.classes %}
+                {% include "admin/includes/fieldset.html" %}
+                {% if fieldset.name == "Financial Information" %}
+                    {% for inline_admin_formset in inline_admin_formsets %}
+                        {% if inline_admin_formset.opts.model_name == "invoicesettlementallocation" %}
+                            <div class="invoice-financial-settlement-wrap">
+                                {% include inline_admin_formset.opts.template %}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+        {% include "unfold/helpers/fieldsets_tabs.html" %}
+    {% endwith %}
+{% endblock %}
+
+{% block inline_field_sets %}
+    {% for inline_admin_formset in inline_admin_formsets %}
+        {% if inline_admin_formset.opts.model_name != "invoicesettlementallocation" %}
+            {% include inline_admin_formset.opts.template %}
+        {% endif %}
+    {% endfor %}
+{% endblock %}

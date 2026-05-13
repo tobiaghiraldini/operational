@@ -30,6 +30,11 @@ def period_date_range(period: FiscalPeriod) -> Tuple[date_cls, date_cls]:
     )
 
 
+def calendar_year_bounds(year: int) -> Tuple[date_cls, date_cls]:
+    """Inclusive Jan 1 … Dec 31 for a calendar year."""
+    return date_cls(year, 1, 1), date_cls(year, 12, 31)
+
+
 def previous_period(period: FiscalPeriod) -> FiscalPeriod | None:
     """Return the period immediately before `period`, or None if it doesn't exist."""
     if period.month == 1:

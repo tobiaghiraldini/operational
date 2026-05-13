@@ -13,16 +13,23 @@ from pdfplumber import open as pdf_open
 from apps.invoices.models import Invoice, InvoiceExtraction
 from apps.vendors.models import Vendor, PaymentMethod
 from apps.documents.models import DocumentFile
+from apps.documents.storage import document_absolute_path
+from apps.tenants.services.company_profile import fetch_tenant_company_profile_for_schema
 from apps.invoices.services import (
-    get_user_company_info, 
-    validate_vendor_extraction, 
+    validate_vendor_extraction,
     identify_issuer_receiver,
     find_invoice_template,
     get_template_spatial_hints,
-    match_invoice_to_template
+    match_invoice_to_template,
 )
 from apps.documents.ocr import OCRProcessor
 from django.contrib.auth import get_user_model
+from apps.invoices.currency_lookup import resolve_invoice_currency
+from apps.invoices.extraction_validate import (
+    EXTRACTION_PROMPT_VERSION,
+    extraction_requires_manual_review,
+    normalize_and_validate_extraction,
+)
 
 User = get_user_model()
 
@@ -36,6 +43,7 @@ def process_single_invoice(
     user_id=None,
     document_file_id=None,
     schema_name=None,
+    classification_hints=None,
 ):
     """
     Process a single invoice PDF file.
@@ -44,8 +52,10 @@ def process_single_invoice(
         file_path: Path to the PDF file
         original_filename: Original filename
         vendor_id: Optional vendor ID
-        user_id: Optional user ID for company information matching
+        user_id: Optional user ID (upload attribution / emitted templates)
         document_file_id: Optional DocumentFile ID to link the invoice to
+        schema_name: Tenant schema name (for tenant company profile lookup)
+        classification_hints: Optional dict (invoice_type, vendor_id, document_kind, …)
     """
     print(f"[TASK DEBUG] Processing invoice: {original_filename}")
     print(f"[TASK DEBUG] File path: {file_path}")
@@ -61,16 +71,30 @@ def process_single_invoice(
             vendor_id=vendor_id,
             user_id=user_id,
             document_file_id=document_file_id,
+            schema_name=schema_name,
+            classification_hints=classification_hints,
         )
 
 
-def _process_single_invoice_impl(self, file_path, original_filename, vendor_id=None, user_id=None, document_file_id=None):
+def _process_single_invoice_impl(
+    self,
+    file_path,
+    original_filename,
+    vendor_id=None,
+    user_id=None,
+    document_file_id=None,
+    schema_name=None,
+    classification_hints=None,
+):
     # Try to find DocumentFile if not provided
     document_file = None
     if document_file_id:
         try:
             document_file = DocumentFile.objects.get(pk=document_file_id)
             print(f"[TASK DEBUG] Found DocumentFile: {document_file.filename}")
+            resolved = document_absolute_path(document_file)
+            if resolved and os.path.isfile(resolved):
+                file_path = resolved
         except DocumentFile.DoesNotExist:
             print(f"[TASK DEBUG] DocumentFile {document_file_id} not found, will try to find by file path/hash")
     
@@ -94,18 +118,11 @@ def _process_single_invoice_impl(self, file_path, original_filename, vendor_id=N
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
         
-        # Get user's company information if user_id provided
-        company_info = None
-        if user_id:
-            try:
-                user = User.objects.get(pk=user_id)
-                company_info = get_user_company_info(user)
-                if company_info:
-                    print(f"[TASK DEBUG] Found company info: {company_info.name}")
-                else:
-                    print(f"[TASK DEBUG] No company info found for user")
-            except User.DoesNotExist:
-                print(f"[TASK DEBUG] User {user_id} not found")
+        company_info = fetch_tenant_company_profile_for_schema(schema_name)
+        if company_info:
+            print(f"[TASK DEBUG] Found tenant company profile: {company_info.display_name}")
+        else:
+            print(f"[TASK DEBUG] No tenant company profile for schema {schema_name!r}")
         
         # Extract text from PDF with layout information
         print(f"[TASK DEBUG] Extracting text from PDF...")
@@ -198,30 +215,61 @@ def _process_single_invoice_impl(self, file_path, original_filename, vendor_id=N
         # Set invoice type in extracted data
         extracted_data['invoice_type'] = invoice_type
         print(f"[TASK DEBUG] Invoice type determined: {invoice_type}")
+
+        classification_hints = classification_hints or {}
+        extracted_data, validation_notes, field_confidence = normalize_and_validate_extraction(
+            extracted_data
+        )
+        if validation_notes:
+            extracted_data["validation_notes"] = validation_notes
+        extracted_data["field_confidence"] = field_confidence
+
+        hint_type = classification_hints.get("invoice_type")
+        if hint_type in ("received", "emitted"):
+            extracted_data["invoice_type"] = hint_type
+            print(f"[TASK DEBUG] invoice_type overridden from hints: {hint_type}")
+
+        hint_kind = classification_hints.get("document_kind")
+        if hint_kind in dict(Invoice.DOCUMENT_KIND_CHOICES):
+            extracted_data["document_kind"] = hint_kind
+
+        needs_from_validation = extraction_requires_manual_review(
+            False,
+            field_confidence,
+            validation_notes,
+        )
+        if needs_from_validation:
+            extracted_data["_force_review"] = True
         
         # Save extracted data to database with validation
         print(f"[TASK DEBUG] Saving to database...")
         with transaction.atomic():
             invoice = save_extracted_data(
-                extracted_data, 
-                file_path, 
-                original_filename, 
-                vendor_id, 
+                extracted_data,
+                file_path,
+                original_filename,
+                vendor_id,
                 company_info,
                 template=template,
                 user_id=user_id,
-                document_file=document_file
+                document_file=document_file,
+                classification_hints=classification_hints,
             )
             
             # Check if extraction already exists
+            conf_score = calculate_confidence(extracted_data, field_confidence)
             extraction, created = InvoiceExtraction.objects.get_or_create(
                 invoice=invoice,
                 defaults={
                     'raw_text': text_content,
                     'raw_extracted_data': extracted_data,
                     'extraction_method': 'llm',
-                    'confidence_score': calculate_confidence(extracted_data),
-                    'processed_at': timezone.now()
+                    'confidence_score': conf_score,
+                    'processed_at': timezone.now(),
+                    'field_confidence': field_confidence,
+                    'llm_model_name': getattr(settings, 'OLLAMA_MODEL', '')[:120],
+                    'prompt_version': EXTRACTION_PROMPT_VERSION,
+                    'validated_data': {'validation_notes': validation_notes},
                 }
             )
             
@@ -230,16 +278,31 @@ def _process_single_invoice_impl(self, file_path, original_filename, vendor_id=N
                 extraction.raw_text = text_content
                 extraction.raw_extracted_data = extracted_data
                 extraction.extraction_method = 'llm'
-                extraction.confidence_score = calculate_confidence(extracted_data)
+                extraction.confidence_score = conf_score
                 extraction.processed_at = timezone.now()
+                extraction.field_confidence = field_confidence
+                extraction.llm_model_name = getattr(settings, 'OLLAMA_MODEL', '')[:120]
+                extraction.prompt_version = EXTRACTION_PROMPT_VERSION
+                extraction.validated_data = {'validation_notes': validation_notes}
                 extraction.save()
+
+            user_for_payment = None
+            if user_id:
+                try:
+                    user_for_payment = User.objects.get(pk=user_id)
+                except User.DoesNotExist:
+                    pass
+            from apps.invoices.payment_transaction import sync_invoice_payment_transaction
+
+            sync_invoice_payment_transaction(invoice, created_by=user_for_payment)
         
         print(f"[TASK DEBUG] Processing completed successfully")
+        vendor_label = invoice.vendor.name if invoice.vendor else ""
         return {
-            'success': True, 
-            'invoice_id': invoice.id, 
+            'success': True,
+            'invoice_id': invoice.id,
             'invoice_number': invoice.invoice_number,
-            'vendor_name': invoice.vendor.name,
+            'vendor_name': vendor_label,
             'extraction_created': created
         }
         
@@ -293,6 +356,7 @@ def process_document_folder(folder_path, schema_name=None):
                     str(pdf_file.absolute()),
                     pdf_file.name,
                     schema_name=schema_name,
+                    classification_hints=None,
                 )
                 results.append({'file': pdf_file.name, 'task_id': result.id, 'status': 'queued'})
             except Exception as e:
@@ -352,13 +416,23 @@ def extract_text_from_pdf(file_path):
         raise Exception(f"PDF extraction failed: {str(e)}")
 
 
+def _parse_llm_json_response(raw_text: str) -> dict:
+    """Parse JSON from Ollama response, stripping optional markdown fences."""
+    text = (raw_text or "").strip()
+    if text.startswith("```"):
+        text = text.removeprefix("```json").removeprefix("```").strip()
+        if "```" in text:
+            text = text.split("```", 1)[0].strip()
+    return json.loads(text)
+
+
 def call_ollama_extraction(invoice_text, company_info=None, spatial_hints=None, template=None):
     """
     Call Ollama API to extract structured data from invoice text.
     
     Args:
         invoice_text: Extracted text from invoice
-        company_info: Optional CompanyInformation instance for context
+        company_info: Optional Organization (tenant company profile) for context
         spatial_hints: Optional spatial region information
     """
     ollama_url = settings.OLLAMA_URL
@@ -373,13 +447,15 @@ def call_ollama_extraction(invoice_text, company_info=None, spatial_hints=None, 
     # Build company context section
     company_context = ""
     if company_info:
+        aliases = company_info.trading_aliases or []
+        alias_str = ", ".join(a for a in aliases if isinstance(a, str)) if aliases else "None"
         company_context = f"""
 YOUR COMPANY INFORMATION (for reference - this is the RECEIVER, not the vendor):
-- Company Name: {company_info.name}
+- Company Name: {company_info.display_name}
 - Legal Name: {company_info.legal_name or 'N/A'}
 - VAT ID: {company_info.vat_id}
-- Address: {company_info.address}, {company_info.city}, {company_info.postal_code}, {company_info.country_code}
-- Alternative Names: {', '.join(company_info.aliases) if company_info.aliases else 'None'}
+- Address: {company_info.formatted_address()}
+- Alternative Names: {alias_str}
 
 IMPORTANT INSTRUCTIONS:
 - The INVOICE ISSUER is the company that created/sent the invoice (usually in top-left or header section)
@@ -426,6 +502,11 @@ Extract the following fields from this invoice in valid JSON format:
 - vat_percentage (numeric or null)
 - vat_amount (numeric or null)
 - taxable_amount (numeric or null)
+- document_kind (string: invoice, credit_note, proforma, other)
+- payment_date (YYYY-MM-DD or null) — date payment was received/settled if shown on the document
+- paid_in_full (boolean) — true if the invoice is explicitly marked paid in full / settled
+- is_paid (boolean) — synonym for paid_in_full if the document only states "paid" without a date
+- field_confidence (object mapping each of the above field names to a number between 0 and 1)
 
 {company_context}
 
@@ -463,7 +544,7 @@ Invoice Text:
         print(f"[OLLAMA DEBUG] Response: {result}")
         
         # Parse the response
-        extracted_json = json.loads(result['response'])
+        extracted_json = _parse_llm_json_response(result['response'])
         print(f"[OLLAMA DEBUG] Extracted JSON: {extracted_json}")
         return extracted_json
         
@@ -479,142 +560,202 @@ Invoice Text:
         raise Exception(f"Unexpected error during extraction: {str(e)}")
 
 
-def save_extracted_data(extracted_data, file_path, original_filename, vendor_id=None, company_info=None, template=None, user_id=None, document_file=None):
+def save_extracted_data(
+    extracted_data,
+    file_path,
+    original_filename,
+    vendor_id=None,
+    company_info=None,
+    template=None,
+    user_id=None,
+    document_file=None,
+    classification_hints=None,
+):
     """
     Save extracted data to database models with validation.
-    
-    Args:
-        extracted_data: Extracted invoice data
-        file_path: Path to invoice file
-        original_filename: Original filename
-        vendor_id: Optional vendor ID
-        company_info: Optional CompanyInformation for validation
-        template: Optional InvoiceTemplate used for extraction
-        user_id: Optional user ID
-        document_file: Optional DocumentFile instance to link the invoice to
+
+    classification_hints: optional upload-time dict stored on the invoice row.
     """
-    # Validate vendor extraction
-    vendor_name = extracted_data.get('vendor_name', 'Unknown Vendor')
+    classification_hints = classification_hints or {}
+    force_review = bool(extracted_data.get("_force_review"))
+
+    from apps.invoices.payment_transaction import apply_extraction_payment_fields, coerce_date
+
+    inv_date = coerce_date(extracted_data.get("invoice_date")) or coerce_date(
+        extracted_data.get("due_date")
+    ) or timezone.localdate()
+    due_date = coerce_date(extracted_data.get("due_date")) or inv_date
+    _pay = Invoice(invoice_date=inv_date)
+    apply_extraction_payment_fields(_pay, extracted_data)
+
+    vendor = None
+    if classification_hints.get("vendor_id") is not None:
+        try:
+            vendor = Vendor.objects.get(pk=int(str(classification_hints["vendor_id"])))
+        except (ValueError, Vendor.DoesNotExist):
+            vendor = None
+
+    vendor_name = extracted_data.get("vendor_name") or "Unknown Vendor"
     validation_result = validate_vendor_extraction(vendor_name, company_info)
-    
-    needs_review = validation_result.get('needs_review', False)
-    validation_reason = validation_result.get('reason', '')
-    
+    needs_review = bool(validation_result.get("needs_review")) or force_review
+    validation_reason = validation_result.get("reason", "")
+
+    validation_notes = extracted_data.get("validation_notes") or []
+    if validation_notes:
+        needs_review = True
+        extra = "; ".join(str(n) for n in validation_notes)
+        validation_reason = f"{validation_reason}; {extra}" if validation_reason else extra
+
     if needs_review:
         print(f"[SAVE DEBUG] Validation flag: {validation_reason}")
-    
-    # Get or create vendor
-    # Ensure vat_id and address are strings, not None (handle JSON null values)
-    vendor_vat_id = extracted_data.get('vendor_vat_id') or ''
-    vendor_address = extracted_data.get('vendor_address') or ''
-    
-    vendor, created = Vendor.objects.get_or_create(
-        name=vendor_name,
-        defaults={
-            'vat_id': vendor_vat_id,
-            'address': vendor_address,
-            'country_code': 'IT'  # Default for Italian invoices
-        }
-    )
-    
-    # Get or create payment method
-    payment_method_code = extracted_data.get('payment_method', 'other')
+
+    vendor_vat_id = extracted_data.get("vendor_vat_id") or ""
+    vendor_address = extracted_data.get("vendor_address") or ""
+
+    if vendor is None:
+        vendor, _created = Vendor.objects.get_or_create(
+            name=vendor_name,
+            defaults={
+                "vat_id": vendor_vat_id,
+                "address": vendor_address,
+                "country_code": "IT",
+            },
+        )
+
+    pm_raw = (extracted_data.get("payment_method") or "other").lower().replace(" ", "_")
+    if pm_raw not in dict(PaymentMethod.PAYMENT_METHOD_CHOICES):
+        pm_raw = "other"
     payment_method, _ = PaymentMethod.objects.get_or_create(
-        code=payment_method_code,
+        code=pm_raw,
         defaults={
-            'name': payment_method_code.replace('_', ' ').title(),
-            'description': f'Payment method: {payment_method_code}'
-        }
+            "name": dict(PaymentMethod.PAYMENT_METHOD_CHOICES).get(pm_raw, pm_raw.title()),
+            "description": "",
+        },
     )
-    
-    # Check if invoice already exists
-    invoice_number = extracted_data.get('invoice_number', '')
+
+    invoice_number = extracted_data.get("invoice_number", "")
+    invoice_type = extracted_data.get("invoice_type", "received")
+
+    dk = extracted_data.get("document_kind") or classification_hints.get("document_kind") or "invoice"
+    if dk not in dict(Invoice.DOCUMENT_KIND_CHOICES):
+        dk = "invoice"
+
+    currency_code = (
+        extracted_data.get("currency")
+        or classification_hints.get("currency")
+        or "EUR"
+    )
+    currency_obj = resolve_invoice_currency(currency_code)
+
     existing_invoice = Invoice.objects.filter(
         invoice_number=invoice_number,
-        vendor=vendor
+        vendor=vendor,
     ).first()
-    
+
+    invoice_status = "review" if needs_review else "extracted"
+
     if existing_invoice:
         print(f"[SAVE DEBUG] Invoice {invoice_number} from {vendor.name} already exists, updating...")
-        # Update existing invoice with new data
-        existing_invoice.invoice_date = extracted_data.get('invoice_date') or existing_invoice.invoice_date
-        existing_invoice.due_date = extracted_data.get('due_date') or existing_invoice.due_date
-        existing_invoice.total_amount = extracted_data.get('total_amount', existing_invoice.total_amount)
-        existing_invoice.currency = extracted_data.get('currency', existing_invoice.currency)
-        existing_invoice.vat_percentage = extracted_data.get('vat_percentage') or existing_invoice.vat_percentage
-        existing_invoice.vat_amount = extracted_data.get('vat_amount') or existing_invoice.vat_amount
-        existing_invoice.taxable_amount = extracted_data.get('taxable_amount') or existing_invoice.taxable_amount
+        existing_invoice.invoice_date = inv_date or existing_invoice.invoice_date
+        existing_invoice.due_date = due_date or existing_invoice.due_date
+        existing_invoice.total_amount = extracted_data.get("total_amount", existing_invoice.total_amount)
+        existing_invoice.currency = currency_obj
+        existing_invoice.vat_percentage = extracted_data.get("vat_percentage") or existing_invoice.vat_percentage
+        existing_invoice.vat_amount = extracted_data.get("vat_amount") or existing_invoice.vat_amount
+        existing_invoice.taxable_amount = extracted_data.get("taxable_amount") or existing_invoice.taxable_amount
         existing_invoice.payment_method = payment_method or existing_invoice.payment_method
-        existing_invoice.status = 'extracted'
-        existing_invoice.needs_manual_review = False
-        existing_invoice.extraction_errors = ''
-        # Update document_file if provided and not already set
+        existing_invoice.status = invoice_status
+        existing_invoice.needs_manual_review = needs_review
+        existing_invoice.extraction_errors = validation_reason if needs_review else ""
+        existing_invoice.invoice_type = invoice_type
+        existing_invoice.document_kind = dk
+        existing_invoice.classification_hints = dict(classification_hints)
         if document_file and not existing_invoice.document_file:
             existing_invoice.document_file = document_file
+        if vendor_vat_id and invoice_type == "received":
+            existing_invoice.supplier_vat_id = vendor_vat_id
+        existing_invoice.payment_date = _pay.payment_date
+        existing_invoice.paid_override = _pay.paid_override
         existing_invoice.save()
         return existing_invoice
-    
-    # Create new invoice
+
+    supplier_vat = vendor_vat_id if invoice_type == "received" else ""
+    customer_vat = (extracted_data.get("customer_vat_id") or "") if invoice_type == "emitted" else ""
+
     try:
         invoice = Invoice.objects.create(
             invoice_number=invoice_number,
-            invoice_date=extracted_data.get('invoice_date'),
-            due_date=extracted_data.get('due_date'),
-            total_amount=extracted_data.get('total_amount', 0),
-            currency=extracted_data.get('currency', 'EUR'),
-            vat_percentage=extracted_data.get('vat_percentage'),
-            vat_amount=extracted_data.get('vat_amount'),
-            taxable_amount=extracted_data.get('taxable_amount'),
+            invoice_date=inv_date,
+            due_date=due_date,
+            payment_date=_pay.payment_date,
+            paid_override=_pay.paid_override,
+            total_amount=extracted_data.get("total_amount", 0),
+            currency=currency_obj,
+            vat_percentage=extracted_data.get("vat_percentage"),
+            vat_amount=extracted_data.get("vat_amount"),
+            taxable_amount=extracted_data.get("taxable_amount"),
             vendor=vendor,
             payment_method=payment_method,
             original_filename=original_filename,
             file_path=file_path,
             file_size=os.path.getsize(file_path) if os.path.exists(file_path) else 0,
-            status='extracted',
+            status=invoice_status,
             needs_manual_review=needs_review,
-            extraction_errors=validation_reason if needs_review else '',
-            invoice_type=extracted_data.get('invoice_type', 'received'),
+            extraction_errors=validation_reason if needs_review else "",
+            invoice_type=invoice_type,
             template=template,
-            document_file=document_file
+            document_file=document_file,
+            classification_hints=dict(classification_hints),
+            document_kind=dk,
+            supplier_vat_id=supplier_vat,
+            customer_vat_id=customer_vat,
+            uploaded_by_id=user_id if user_id else None,
         )
-        
-        # Increment template usage if template was used
+
         if template:
             template.increment_usage()
         print(f"[SAVE DEBUG] Created new invoice {invoice_number} for {vendor.name}")
         return invoice
-        
+
     except Exception as e:
         print(f"[SAVE DEBUG] Error creating invoice: {str(e)}")
-        # Try to find and return existing invoice if creation failed
         existing_invoice = Invoice.objects.filter(
             invoice_number=invoice_number,
-            vendor=vendor
+            vendor=vendor,
         ).first()
         if existing_invoice:
-            print(f"[SAVE DEBUG] Found existing invoice {existing_invoice.number}, returning it")
+            print(f"[SAVE DEBUG] Found existing invoice {existing_invoice.pk}, returning it")
             return existing_invoice
-        else:
-            raise e
+        raise e
 
 
-def calculate_confidence(extracted_data):
+def calculate_confidence(extracted_data, field_confidence=None):
     """
-    Calculate confidence score based on extracted data completeness.
+    Aggregate confidence (0–100) from field completeness and optional LLM per-field scores.
     """
+    field_confidence = field_confidence or extracted_data.get("field_confidence") or {}
     required_fields = [
-        'invoice_number', 'invoice_date', 'due_date', 
-        'total_amount', 'vendor_name'
+        "invoice_number",
+        "invoice_date",
+        "due_date",
+        "total_amount",
+        "vendor_name",
     ]
-    
+
     present_fields = sum(1 for field in required_fields if extracted_data.get(field))
     base_score = (present_fields / len(required_fields)) * 100
-    
-    # Bonus for additional fields
-    additional_fields = ['vat_percentage', 'vendor_vat_id', 'payment_method']
+
+    additional_fields = ["vat_percentage", "vendor_vat_id", "payment_method"]
     bonus = sum(5 for field in additional_fields if extracted_data.get(field))
-    
-    return min(100, base_score + bonus)
+
+    heuristic = min(100.0, base_score + bonus)
+
+    scores = [float(v) for v in field_confidence.values() if isinstance(v, (int, float))]
+    if scores:
+        llm_avg = sum(scores) / len(scores) * 100.0
+        return min(100.0, heuristic * 0.5 + llm_avg * 0.5)
+
+    return min(100.0, heuristic)
 
 
 def calculate_file_hash(file_path):
@@ -651,7 +792,8 @@ def cleanup_failed_extractions():
             # Queue for retry
             process_single_invoice.delay(
                 invoice.file_path,
-                invoice.original_filename
+                invoice.original_filename,
+                classification_hints=None,
             )
             
         except Exception as e:

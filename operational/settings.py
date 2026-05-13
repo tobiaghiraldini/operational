@@ -81,6 +81,10 @@ TENANT_APPS = [
     "apps.documents",
     "apps.invoices",
     "apps.organizations",
+    "rest_framework",
+    "django_filters",
+    "django_drf_filepond",
+    "apps.files",
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [
@@ -205,6 +209,42 @@ STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
 
+MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_URL = "/media/"
+
+# Invoice uploads (single PDF via FilePond, ZIP batch)
+INVOICE_MAX_UPLOAD_BYTES = int(os.getenv("INVOICE_MAX_UPLOAD_BYTES", str(25 * 1024 * 1024)))
+INVOICE_ZIP_MAX_BYTES = int(os.getenv("INVOICE_ZIP_MAX_BYTES", str(50 * 1024 * 1024)))
+INVOICE_ZIP_MAX_FILES = int(os.getenv("INVOICE_ZIP_MAX_FILES", "200"))
+
+# django-drf-filepond: temp + stored paths must live under BASE_DIR unless
+# DJANGO_DRF_FILEPOND_ALLOW_EXTERNAL_UPLOAD_DIR is True.
+FILEPOND_UPLOAD_TMP = BASE_DIR / "filepond_tmp"
+FILEPOND_FILE_STORE = BASE_DIR / "filepond_store"
+DJANGO_DRF_FILEPOND_UPLOAD_TMP = str(FILEPOND_UPLOAD_TMP)
+DJANGO_DRF_FILEPOND_FILE_STORE_PATH = str(FILEPOND_FILE_STORE)
+DJANGO_DRF_FILEPOND_PERMISSION_CLASSES = {
+    "POST_PROCESS": ["rest_framework.permissions.IsAuthenticated"],
+    "DELETE_REVERT": ["rest_framework.permissions.IsAuthenticated"],
+    "PATCH_PATCH": ["rest_framework.permissions.IsAuthenticated"],
+    "GET_LOAD": ["rest_framework.permissions.IsAuthenticated"],
+    "GET_RESTORE": ["rest_framework.permissions.IsAuthenticated"],
+    "GET_FETCH": ["rest_framework.permissions.IsAuthenticated"],
+}
+
+REST_FRAMEWORK = {
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+}
+
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434/api/generate")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
+OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "120"))
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -258,7 +298,7 @@ UNFOLD = {
     "SITE_SUBHEADER": "Control Center",
     "SIDEBAR": {
         "show_search": True,
-        "show_all_applications": True,
+        "show_all_applications": "apps.core.admin_navigation.sidebar_show_all_applications",
         "navigation": "apps.core.admin_navigation.get_sidebar_navigation",
     },
     "STYLES": [

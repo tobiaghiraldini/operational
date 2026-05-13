@@ -135,7 +135,11 @@ def _do_get_invoices_by_period(
         query &= Q(vendor__name__icontains=vendor_name)
     
     # Execute query
-    invoices_list = list(Invoice.objects.filter(query).select_related('vendor', 'customer', 'payment_method').order_by('-total_amount'))
+    invoices_list = list(
+        Invoice.objects.filter(query)
+        .select_related("vendor", "customer", "payment_method", "currency")
+        .order_by("-total_amount")
+    )
     
     # Calculate statistics
     total_amount = sum(inv.total_amount for inv in invoices_list)
@@ -162,7 +166,7 @@ def _do_get_invoices_by_period(
                 'date': str(inv.invoice_date),
                 'due_date': str(inv.due_date),
                 'amount': float(inv.total_amount),
-                'currency': inv.currency,
+                'currency': inv.currency.code if inv.currency_id else None,
                 'status': inv.status,
                 'is_paid': inv.is_paid,
                 'payment_date': str(inv.payment_date) if inv.payment_date else None
@@ -205,15 +209,19 @@ def _do_get_monthly_invoice_summary(year: int, month: int) -> Dict:
     end_date = date(year, month, last_day)
     
     # Query invoices
-    invoices_list = list(Invoice.objects.filter(
-        invoice_date__gte=start_date,
-        invoice_date__lte=end_date
-    ).select_related('vendor', 'customer').order_by('invoice_date'))
-    
+    invoices_list = list(
+        Invoice.objects.filter(
+            invoice_date__gte=start_date,
+            invoice_date__lte=end_date,
+        )
+        .select_related("vendor", "customer", "currency")
+        .order_by("invoice_date")
+    )
+
     # Group by currency
     by_currency = {}
     for inv in invoices_list:
-        curr = inv.currency
+        curr = inv.currency.code if inv.currency_id else None
         if curr not in by_currency:
             by_currency[curr] = {
                 'count': 0,
@@ -276,7 +284,7 @@ def _do_get_monthly_invoice_summary(year: int, month: int) -> Dict:
                 'amount': float(inv.total_amount),
                 'vat_amount': float(inv.vat_amount or 0),
                 'taxable_amount': float(inv.taxable_amount or 0),
-                'currency': inv.currency,
+                'currency': inv.currency.code if inv.currency_id else None,
                 'is_paid': inv.is_paid
             }
             for inv in invoices_list
@@ -306,11 +314,15 @@ def _do_get_income_outcome_analysis(
 ) -> Dict:
     """Sync helper function for get_income_outcome_analysis."""
     # Query invoices in date range
-    invoices_list = list(Invoice.objects.filter(
-        invoice_date__gte=start_date,
-        invoice_date__lte=end_date
-    ).select_related('vendor', 'customer').order_by('invoice_date'))
-    
+    invoices_list = list(
+        Invoice.objects.filter(
+            invoice_date__gte=start_date,
+            invoice_date__lte=end_date,
+        )
+        .select_related("vendor", "customer", "currency")
+        .order_by("invoice_date")
+    )
+
     # Group by period
     grouped = {}
     for inv in invoices_list:
@@ -382,10 +394,14 @@ async def get_income_outcome_analysis(
 def _do_get_vendor_analysis(start_date: str, end_date: str) -> Dict:
     """Sync helper function for get_vendor_analysis."""
     # Query invoices
-    invoices_list = list(Invoice.objects.filter(
-        invoice_date__gte=start_date,
-        invoice_date__lte=end_date
-    ).select_related('vendor', 'customer').order_by('-total_amount'))
+    invoices_list = list(
+        Invoice.objects.filter(
+            invoice_date__gte=start_date,
+            invoice_date__lte=end_date,
+        )
+        .select_related("vendor", "customer", "currency")
+        .order_by("-total_amount")
+    )
     
     # Group by vendor
     by_vendor = {}
@@ -406,7 +422,8 @@ def _do_get_vendor_analysis(start_date: str, end_date: str) -> Dict:
             
             by_vendor[vendor_id]['invoice_count'] += 1
             by_vendor[vendor_id]['total_amount'] += float(inv.total_amount)
-            by_vendor[vendor_id]['currencies'].add(inv.currency)
+            if inv.currency_id:
+                by_vendor[vendor_id]["currencies"].add(inv.currency.code)
     
     # Calculate averages and convert sets to lists
     vendor_list = []
@@ -453,10 +470,14 @@ def _do_get_overdue_invoices() -> Dict:
     today = timezone.now().date()
     
     # Query unpaid invoices with past due dates
-    invoices_list = list(Invoice.objects.filter(
-        payment_date__isnull=True,
-        due_date__lt=today
-    ).select_related('vendor', 'customer').order_by('due_date'))
+    invoices_list = list(
+        Invoice.objects.filter(
+            payment_date__isnull=True,
+            due_date__lt=today,
+        )
+        .select_related("vendor", "customer", "currency")
+        .order_by("due_date")
+    )
     
     total_overdue = sum(float(inv.total_amount) for inv in invoices_list)
     
@@ -474,7 +495,7 @@ def _do_get_overdue_invoices() -> Dict:
                 'due_date': str(inv.due_date),
                 'days_overdue': inv.days_overdue,
                 'amount': float(inv.total_amount),
-                'currency': inv.currency
+                'currency': inv.currency.code if inv.currency_id else None,
             }
             for inv in invoices_list
         ]

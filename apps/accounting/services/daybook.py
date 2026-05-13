@@ -7,7 +7,9 @@ from typing import Iterable
 
 from django.db.models import QuerySet
 
-from apps.money.models import Transaction
+from django.db.models import Prefetch
+
+from apps.money.models import InvoiceSettlementAllocation, Transaction
 
 
 def build_daybook(
@@ -29,9 +31,16 @@ def build_daybook(
             "account__currency",
             "category",
             "currency",
-            "invoice",
             "customer",
             "vendor",
+        )
+        .prefetch_related(
+            Prefetch(
+                "invoice_allocations",
+                queryset=InvoiceSettlementAllocation.objects.select_related(
+                    "invoice"
+                ),
+            )
         )
         .filter(date__gte=date_from, date__lte=date_to)
         .order_by("date", "id")

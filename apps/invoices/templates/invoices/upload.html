@@ -1,0 +1,96 @@
+{% extends "invoices/_base.html" %}
+{% load static %}
+{% block title %}Upload invoice{% endblock %}
+{% block extra_head %}
+  <link href="https://unpkg.com/filepond@4.30.4/dist/filepond.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/filepond@4.30.4/dist/filepond.min.js"></script>
+{% endblock %}
+{% block content %}
+  <h1 class="text-2xl font-bold text-slate-900 mb-2">Upload invoice PDF</h1>
+  <p class="text-slate-600 mb-6">Files are uploaded via FilePond, then finalized for extraction.</p>
+
+  <form id="hints-form" class="space-y-4 mb-8 rounded-xl border border-slate-200 bg-white p-4">
+    {% csrf_token %}
+    <div class="grid gap-4 sm:grid-cols-2">
+      <label class="block text-sm">
+        <span class="text-slate-700">Invoice direction</span>
+        <select name="invoice_type" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          <option value="">(auto)</option>
+          {% for value, label in invoice_type_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="block text-sm">
+        <span class="text-slate-700">Document kind</span>
+        <select name="document_kind" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          {% for value, label in document_kind_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <label class="block text-sm">
+      <span class="text-slate-700">Expected currency (optional)</span>
+      <input name="currency" maxlength="3" placeholder="EUR" class="mt-1 w-full max-w-xs rounded-lg border border-slate-300 px-3 py-2 text-sm uppercase">
+    </label>
+  </form>
+
+  <input type="file" id="pond" name="filepond" accept="application/pdf,.pdf" class="filepond">
+
+  <div id="status" class="mt-6 text-sm text-slate-600" aria-live="polite"></div>
+
+  <script>
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+    const csrftoken = getCookie('csrftoken');
+    const pond = FilePond.create(document.getElementById('pond'), {
+      server: {
+        url: '/files/filepond/',
+        process: { headers: { 'X-CSRFToken': csrftoken } },
+        revert: { headers: { 'X-CSRFToken': csrftoken } },
+        patch: { headers: { 'X-CSRFToken': csrftoken } },
+      },
+      acceptedFileTypes: ['application/pdf'],
+      onprocessfile: (err, file) => {
+        const el = document.getElementById('status');
+        if (err) {
+          el.textContent = 'Upload failed: ' + err;
+          return;
+        }
+        const uploadId = file.serverId;
+        const form = document.getElementById('hints-form');
+        const fd = new FormData(form);
+        const hints = {};
+        const it = fd.get('invoice_type');
+        if (it) hints.invoice_type = it;
+        const dk = fd.get('document_kind');
+        if (dk) hints.document_kind = dk;
+        const cur = (fd.get('currency') || '').trim().toUpperCase();
+        if (cur) hints.currency = cur;
+        el.textContent = 'Starting extraction…';
+        fetch('{% url "invoices:process_upload" %}', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken,
+          },
+          body: JSON.stringify({ upload_id: uploadId, classification_hints: Object.keys(hints).length ? hints : null }),
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            if (!data.success) {
+              el.textContent = data.error || 'Processing failed';
+              return;
+            }
+            el.innerHTML = 'Queued. Task ID: <code>' + data.task_id + '</code>. <a class="text-indigo-600" href="{% url "invoices:invoice_list" %}">Back to list</a>';
+          })
+          .catch((e) => { el.textContent = 'Error: ' + e; });
+      },
+    });
+  </script>
+{% endblock %}

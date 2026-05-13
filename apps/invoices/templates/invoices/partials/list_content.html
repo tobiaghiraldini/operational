@@ -1,0 +1,20 @@
+{% if grouped_invoices %}
+  {% for label, invoices in grouped_invoices.items %}
+    <section class="mb-8">
+      <h2 class="text-lg font-semibold text-slate-800 mb-2">{{ label }}</h2>
+      <ul class="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
+        {% for inv in invoices %}
+          <li class="px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <a href="{% url 'invoices:invoice_verify' inv.pk %}" class="font-medium text-indigo-700 hover:underline">{{ inv.invoice_number }}</a>
+              <span class="text-slate-500 text-sm">— {{ inv.invoice_date }} · {{ inv.total_amount }} {{ inv.currency }}</span>
+            </div>
+            <span class="text-xs uppercase tracking-wide text-slate-500">{{ inv.get_status_display }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endfor %}
+{% else %}
+  <p class="text-slate-600">No invoices yet.</p>
+{% endif %}

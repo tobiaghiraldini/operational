@@ -142,11 +142,13 @@ class AccountingExport(BaseModel):
     KIND_INCOME_STATEMENT = "income_statement"
     KIND_BALANCE = "balance"
     KIND_FULL_PACKAGE = "full_package"
+    KIND_FULL_YEAR_PACKAGE = "full_year_package"
     KIND_CHOICES = (
         (KIND_DAYBOOK, "Daybook"),
         (KIND_INCOME_STATEMENT, "Income statement"),
         (KIND_BALANCE, "Balance"),
         (KIND_FULL_PACKAGE, "Full monthly package"),
+        (KIND_FULL_YEAR_PACKAGE, "Full yearly package"),
     )
 
     period = models.ForeignKey(

@@ -9,6 +9,7 @@ from django.db import transaction as db_transaction
 
 from apps.documents.models import DocumentFile
 from apps.documents.parsers.bank_statement import BankStatementParser
+from apps.documents.storage import document_absolute_path
 from apps.money.models import Account, BankStatement, BankStatementLine
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ def import_bank_statement(
     elif file_path is not None:
         parsed = parser.parse(file_path)
     elif document is not None:
-        parsed = parser.parse(document.file_path)
+        parsed = parser.parse(document_absolute_path(document))
     else:
         raise ValueError("Provide one of: document, file_path, raw_text")
 

@@ -5,6 +5,7 @@ from .models import Invoice, InvoiceExtraction
 class InvoiceSerializer(serializers.ModelSerializer):
     vendor_name = serializers.CharField(source='vendor.name', read_only=True)
     payment_method_name = serializers.CharField(source='payment_method.name', read_only=True)
+    currency_code = serializers.CharField(source='currency.code', read_only=True)
     is_paid = serializers.BooleanField(read_only=True)
     days_overdue = serializers.IntegerField(read_only=True)
     
