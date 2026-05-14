@@ -11,7 +11,10 @@ from django.http import HttpResponse
 from django.urls import reverse
 from django_drf_filepond.models import TemporaryUpload
 from apps.files.services.promote_upload import finalize_invoice_upload
-from django_celery_results.models import TaskResult
+from apps.documents.services.celery_task_result_lookup import fetch_task_result
+from apps.documents.services.document_file_invoice_task import (
+    mark_processing_with_task_id as document_file_mark_processing_with_task_id,
+)
 import json
 from datetime import datetime
 from apps.core.tenant import TenantSafeQuerysetMixin
@@ -638,7 +641,10 @@ def process_upload(request):
             schema_name=getattr(request.tenant, "schema_name", None),
             classification_hints=classification_hints,
         )
-        
+        document_file_mark_processing_with_task_id(
+            promoted.document_file.pk, result.id
+        )
+
         # Return task ID - frontend can poll for completion
         # The task will create the invoice and extraction records
         return Response({
@@ -706,7 +712,15 @@ def upload_invoice_zip_batch(request):
 def check_task_status(request, task_id):
     """API endpoint to check Celery task status (JSON or HTML fragment for HTMX polling)."""
     try:
-        task_result = TaskResult.objects.get(task_id=task_id)
+        task_result = fetch_task_result(task_id)
+        if task_result is None:
+            if request.headers.get('HX-Request'):
+                return render(request, 'invoices/partials/task_status.html', {'status': 'PENDING', 'task_id': task_id})
+            return Response({
+                'status': 'PENDING',
+                'task_id': task_id,
+                'message': 'Task not found in database yet'
+            })
         
         # Parse result if it's a string
         result_data = None
@@ -747,14 +761,6 @@ def check_task_status(request, task_id):
             'result': result_data,
             'date_created': task_result.date_created.isoformat() if task_result.date_created else None,
             'date_done': task_result.date_done.isoformat() if task_result.date_done else None,
-        })
-    except TaskResult.DoesNotExist:
-        if request.headers.get('HX-Request'):
-            return render(request, 'invoices/partials/task_status.html', {'status': 'PENDING', 'task_id': task_id})
-        return Response({
-            'status': 'PENDING',
-            'task_id': task_id,
-            'message': 'Task not found in database yet'
         })
     except Exception as e:
         if request.headers.get('HX-Request'):

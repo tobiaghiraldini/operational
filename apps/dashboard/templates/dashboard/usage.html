@@ -1,0 +1,101 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Usage{% endblock %}
+
+{% block main %}
+<div class="mx-auto max-w-6xl space-y-8" x-data="{ range: '7d' }">
+  <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight text-foreground">Usage</h1>
+      <p class="mt-1 text-sm text-muted-foreground">Spend and token activity for this billing period.</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <c-button variant="outline" size="sm" class="border-border text-muted-foreground">May 07 – May 13</c-button>
+      <div class="inline-flex rounded-lg border border-border bg-muted/40 p-0.5">
+        <button type="button" class="rounded-md px-2.5 py-1 text-xs font-medium transition" :class="range === '1d' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'" @click="range = '1d'">1d</button>
+        <button type="button" class="rounded-md px-2.5 py-1 text-xs font-medium transition" :class="range === '7d' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'" @click="range = '7d'">7d</button>
+        <button type="button" class="rounded-md px-2.5 py-1 text-xs font-medium transition" :class="range === '30d' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'" @click="range = '30d'">30d</button>
+        <button type="button" class="rounded-md px-2.5 py-1 text-xs font-medium transition" :class="range === 'MTD' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'" @click="range = 'MTD'">MTD</button>
+        <button type="button" class="rounded-md px-2.5 py-1 text-xs font-medium transition" :class="range === 'last' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'" @click="range = 'last'">Last month</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid gap-4 sm:grid-cols-3">
+    <c-card class="border-border bg-card p-5 shadow-none">
+      <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total spend</p>
+      <p class="mt-2 text-2xl font-semibold tabular-nums text-foreground">23,78 USD</p>
+    </c-card>
+    <c-card class="border-border bg-card p-5 shadow-none">
+      <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Included</p>
+      <p class="mt-2 text-2xl font-semibold tabular-nums text-foreground">23,78 USD</p>
+    </c-card>
+    <c-card class="border-border bg-card p-5 shadow-none">
+      <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">On-demand</p>
+      <p class="mt-2 text-2xl font-semibold tabular-nums text-foreground">0 USD</p>
+    </c-card>
+  </div>
+
+  <c-card class="border-border bg-card shadow-none">
+    <c-card.header class="flex flex-col gap-4 border-b border-border p-6 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <c-card.title>Your usage</c-card.title>
+        <c-card.description>Your usage per day across this billing period.</c-card.description>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <c-button variant="outline" size="sm" class="border-border">Group by: Model</c-button>
+        <c-button variant="outline" size="sm" class="border-border">Metric: Spend</c-button>
+      </div>
+    </c-card.header>
+    <c-card.content class="p-6 pt-4">
+      <div class="relative h-56 w-full rounded-lg border border-border/60 bg-muted/20">
+        <svg class="absolute inset-2 h-[calc(100%-1rem)] w-[calc(100%-1rem)] text-chart-1" preserveAspectRatio="none" viewBox="0 0 400 120" aria-hidden="true">
+          <defs>
+            <linearGradient id="usageFill" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="currentColor" stop-opacity="0.35"/>
+              <stop offset="100%" stop-color="currentColor" stop-opacity="0.02"/>
+            </linearGradient>
+          </defs>
+          <path fill="url(#usageFill)" d="M0,110 L0,85 C40,95 80,40 120,55 C160,70 200,25 240,35 C280,45 320,15 360,20 L400,10 L400,120 L0,120 Z"/>
+          <path fill="none" stroke="currentColor" stroke-width="1.5" d="M0,85 C40,95 80,40 120,55 C160,70 200,25 240,35 C280,45 320,15 360,20 L400,10"/>
+        </svg>
+        <div class="pointer-events-none absolute bottom-2 left-2 flex items-center gap-2 text-xs text-muted-foreground">
+          <span class="inline-block size-2 rounded-sm bg-chart-1"></span> default
+        </div>
+      </div>
+    </c-card.content>
+  </c-card>
+
+  <div class="flex justify-end">
+    <c-button variant="outline" size="sm" class="gap-2 border-border">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+      Export CSV
+    </c-button>
+  </div>
+
+  <c-card class="border-border bg-card p-0 shadow-none">
+    <c-table>
+      <c-table.head>
+        <c-table.row class="border-border hover:bg-transparent">
+          <c-table.header class="h-11 px-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Date</c-table.header>
+          <c-table.header class="h-11 px-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Type</c-table.header>
+          <c-table.header class="h-11 px-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Model</c-table.header>
+          <c-table.header class="h-11 px-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Tokens</c-table.header>
+          <c-table.header class="h-11 px-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Cost</c-table.header>
+        </c-table.row>
+      </c-table.head>
+      <c-table.body>
+        {% for row in usage_rows %}
+          <c-table.row class="border-border/80">
+            <c-table.cell class="px-4 py-3 text-sm text-foreground">{{ row.when }}</c-table.cell>
+            <c-table.cell class="px-4 py-3 text-sm text-muted-foreground">{{ row.kind }}</c-table.cell>
+            <c-table.cell class="px-4 py-3 text-sm text-foreground">{{ row.model }}</c-table.cell>
+            <c-table.cell class="px-4 py-3 text-sm tabular-nums text-foreground">{{ row.tokens }}</c-table.cell>
+            <c-table.cell class="px-4 py-3 text-sm text-muted-foreground">{{ row.cost }}</c-table.cell>
+          </c-table.row>
+        {% endfor %}
+      </c-table.body>
+    </c-table>
+  </c-card>
+</div>
+{% endblock %}

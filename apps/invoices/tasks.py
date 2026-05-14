@@ -5,7 +5,9 @@ import hashlib
 from contextlib import nullcontext
 from pathlib import Path
 from celery import shared_task
+from tenant_schemas_celery.task import TenantTask
 from django.db import transaction
+from django.db.transaction import TransactionManagementError
 from django.utils import timezone
 from django.conf import settings
 from django_tenants.utils import schema_context
@@ -13,6 +15,11 @@ from pdfplumber import open as pdf_open
 from apps.invoices.models import Invoice, InvoiceExtraction
 from apps.vendors.models import Vendor, PaymentMethod
 from apps.documents.models import DocumentFile
+from apps.documents.services.document_file_invoice_task import (
+    mark_failure_safe as document_file_mark_failure_safe,
+    mark_processing as document_file_mark_processing,
+    mark_success_safe as document_file_mark_success_safe,
+)
 from apps.documents.storage import document_absolute_path
 from apps.tenants.services.company_profile import fetch_tenant_company_profile_for_schema
 from apps.invoices.services import (
@@ -34,7 +41,19 @@ from apps.invoices.extraction_validate import (
 User = get_user_model()
 
 
-@shared_task(bind=True, max_retries=3)
+def _invoice_extraction_progress(task_self, percent: int, stage: str) -> None:
+    """Coarse progress for ``django_celery_results`` / admin (refresh to see)."""
+    try:
+        pct = max(0, min(100, int(percent)))
+        task_self.update_state(
+            state="PROGRESS",
+            meta={"percent": pct, "stage": (stage or "")[:240]},
+        )
+    except Exception:
+        pass
+
+
+@shared_task(base=TenantTask, bind=True, max_retries=3)
 def process_single_invoice(
     self,
     file_path,
@@ -117,7 +136,10 @@ def _process_single_invoice_impl(
         # Check if file exists
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
-        
+
+        document_file_mark_processing(document_file)
+        _invoice_extraction_progress(self, 5, "reading_pdf")
+
         company_info = fetch_tenant_company_profile_for_schema(schema_name)
         if company_info:
             print(f"[TASK DEBUG] Found tenant company profile: {company_info.display_name}")
@@ -143,7 +165,9 @@ def _process_single_invoice_impl(
         
         if not text_content.strip():
             raise ValueError("No text extracted from PDF")
-        
+
+        _invoice_extraction_progress(self, 22, "pdf_text_ready")
+
         print(f"[TASK DEBUG] Text extracted, length: {len(text_content)} characters")
         
         # Try to find matching template (before extraction, we need vendor name)
@@ -153,9 +177,11 @@ def _process_single_invoice_impl(
         
         # Call Ollama for initial data extraction
         print(f"[TASK DEBUG] Calling Ollama for initial data extraction...")
+        _invoice_extraction_progress(self, 38, "initial_llm")
         extracted_data = call_ollama_extraction(text_content, company_info, spatial_regions)
         print(f"[TASK DEBUG] Initial extraction completed")
-        
+        _invoice_extraction_progress(self, 52, "initial_llm_done")
+
         # Determine invoice type and find template
         vendor_name = extracted_data.get('vendor_name', '')
         invoice_type = 'received'  # Default to received (expense)
@@ -207,10 +233,12 @@ def _process_single_invoice_impl(
                 spatial_hints = None
             # Re-extract with template-enhanced hints
             print(f"[TASK DEBUG] Re-extracting with template-enhanced spatial hints...")
+            _invoice_extraction_progress(self, 62, "refined_llm")
             extracted_data = call_ollama_extraction(text_content, company_info, spatial_hints, template)
         else:
             spatial_hints = spatial_regions
             print(f"[TASK DEBUG] No template found, using default extraction")
+            _invoice_extraction_progress(self, 62, "skip_template_refinement")
         
         # Set invoice type in extracted data
         extracted_data['invoice_type'] = invoice_type
@@ -243,6 +271,7 @@ def _process_single_invoice_impl(
         
         # Save extracted data to database with validation
         print(f"[TASK DEBUG] Saving to database...")
+        _invoice_extraction_progress(self, 88, "persisting_invoice")
         with transaction.atomic():
             invoice = save_extracted_data(
                 extracted_data,
@@ -295,7 +324,10 @@ def _process_single_invoice_impl(
             from apps.invoices.payment_transaction import sync_invoice_payment_transaction
 
             sync_invoice_payment_transaction(invoice, created_by=user_for_payment)
-        
+
+        document_file_mark_success_safe(document_file)
+        _invoice_extraction_progress(self, 100, "done")
+
         print(f"[TASK DEBUG] Processing completed successfully")
         vendor_label = invoice.vendor.name if invoice.vendor else ""
         return {
@@ -310,13 +342,25 @@ def _process_single_invoice_impl(
         print(f"[TASK DEBUG] Error processing invoice: {str(e)}")
         print(f"[TASK DEBUG] Retry count: {self.request.retries}")
         
-        # Don't retry on certain errors
-        if isinstance(e, (FileNotFoundError, ValueError)):
+        # Don't retry on errors that won't improve with backoff (saves worker slots).
+        if isinstance(
+            e,
+            (FileNotFoundError, ValueError, TransactionManagementError),
+        ):
             print(f"[TASK DEBUG] Non-retryable error, not retrying")
+            document_file_mark_failure_safe(document_file, str(e))
             return {
                 'success': False,
                 'error': str(e),
                 'file': original_filename
+            }
+        if isinstance(e, RuntimeError) and "Ollama has no model" in str(e):
+            print(f"[TASK DEBUG] Ollama model missing (fix config or ollama pull), not retrying")
+            document_file_mark_failure_safe(document_file, str(e))
+            return {
+                'success': False,
+                'error': str(e),
+                'file': original_filename,
             }
         
         # Update retry count and error message
@@ -325,15 +369,12 @@ def _process_single_invoice_impl(
             self.retry(countdown=60 * pow(2, self.request.retries), exc=e)
         else:
             print(f"[TASK DEBUG] Max retries reached, giving up")
-            return {
-                'success': False,
-                'error': str(e),
-                'file': original_filename,
-                'retries_exhausted': True
-            }
+            document_file_mark_failure_safe(document_file, str(e))
+            # Re-raise so Celery marks the task FAILED (not SUCCEEDED with a false payload).
+            raise
 
 
-@shared_task
+@shared_task(base=TenantTask)
 def process_document_folder(folder_path, schema_name=None):
     """
     Process all PDF files in a specified folder.
@@ -365,7 +406,7 @@ def process_document_folder(folder_path, schema_name=None):
         return results
 
 
-@shared_task
+@shared_task(base=TenantTask)
 def test_ollama_connection():
     """
     Test Ollama connection from Celery worker.
@@ -538,7 +579,15 @@ Invoice Text:
         
         if response.status_code != 200:
             print(f"[OLLAMA DEBUG] Error response: {response.text}")
-            raise Exception(f"Ollama API returned {response.status_code}: {response.text}")
+            if response.status_code == 404:
+                raise RuntimeError(
+                    f"Ollama has no model {model!r} (HTTP 404). "
+                    f"Install it with: ollama pull {model} — or set OLLAMA_MODEL in .env to a "
+                    f"name shown by: ollama list"
+                )
+            raise RuntimeError(
+                f"Ollama API returned {response.status_code}: {response.text[:800]}"
+            )
         
         result = response.json()
         print(f"[OLLAMA DEBUG] Response: {result}")
@@ -551,13 +600,15 @@ Invoice Text:
     except json.JSONDecodeError as e:
         print(f"[OLLAMA DEBUG] JSON decode error: {str(e)}")
         print(f"[OLLAMA DEBUG] Raw response: {result if 'result' in locals() else 'No result'}")
-        raise Exception(f"Invalid JSON response from Ollama: {str(e)}")
+        raise RuntimeError(f"Invalid JSON response from Ollama: {str(e)}") from e
     except requests.RequestException as e:
         print(f"[OLLAMA DEBUG] Request error: {str(e)}")
-        raise Exception(f"Ollama API call failed: {str(e)}")
+        raise RuntimeError(f"Ollama API call failed: {str(e)}") from e
+    except RuntimeError:
+        raise
     except Exception as e:
         print(f"[OLLAMA DEBUG] Unexpected error: {str(e)}")
-        raise Exception(f"Unexpected error during extraction: {str(e)}")
+        raise RuntimeError(f"Unexpected error during extraction: {str(e)}") from e
 
 
 def save_extracted_data(
@@ -733,6 +784,8 @@ def calculate_confidence(extracted_data, field_confidence=None):
     """
     Aggregate confidence (0–100) from field completeness and optional LLM per-field scores.
     """
+    from decimal import Decimal
+
     field_confidence = field_confidence or extracted_data.get("field_confidence") or {}
     required_fields = [
         "invoice_number",
@@ -750,13 +803,20 @@ def calculate_confidence(extracted_data, field_confidence=None):
 
     heuristic = min(100.0, base_score + bonus)
 
-    scores = [float(v) for v in field_confidence.values() if isinstance(v, (int, float))]
+    scores = []
+    for v in field_confidence.values():
+        if isinstance(v, bool):
+            continue
+        if isinstance(v, (int, float)):
+            scores.append(float(v))
+        elif isinstance(v, Decimal):
+            scores.append(float(v))
     if scores:
         llm_avg = sum(scores) / len(scores) * 100.0
-        return min(100.0, heuristic * 0.5 + llm_avg * 0.5)
+        combined = float(heuristic) * 0.5 + float(llm_avg) * 0.5
+        return min(100.0, combined)
 
     return min(100.0, heuristic)
-
 
 def calculate_file_hash(file_path):
     """
@@ -772,7 +832,7 @@ def calculate_file_hash(file_path):
         return ""
 
 
-@shared_task
+@shared_task(base=TenantTask)
 def cleanup_failed_extractions():
     """
     Clean up failed extractions and retry if needed.
@@ -802,7 +862,7 @@ def cleanup_failed_extractions():
     return f"Retried {failed_invoices.count()} failed extractions"
 
 
-@shared_task
+@shared_task(base=TenantTask)
 def cleanup_duplicate_invoices():
     """
     Clean up duplicate invoices by keeping the most recent one.

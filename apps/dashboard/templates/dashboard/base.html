@@ -1,0 +1,69 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="dark h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Dashboard{% endblock %} · Operational</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+  <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.10/dist/htmx.min.js" integrity="sha384-H5SrcfygHmAuTDZphMHqBJLc3FhssKjG7w/CeCpFReSfwBWDTKpkzPP8c+cLsK+V" crossorigin="anonymous"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.14.9/dist/cdn.min.js"></script>
+</head>
+<body class="min-h-full bg-background font-sans text-foreground">
+  <div class="flex min-h-screen w-full">
+    <aside class="flex w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+      <div class="flex h-14 items-center border-b border-sidebar-border px-4">
+        <a href="/" class="inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-sidebar-foreground">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+          Back
+        </a>
+      </div>
+      <nav class="flex flex-1 flex-col gap-0.5 p-3 text-sm" aria-label="Dashboard">
+        {% url 'dashboard:overview' as url_overview %}
+        {% url 'dashboard:usage' as url_usage %}
+        <a href="{{ url_overview }}" class="flex items-center gap-2 rounded-md px-2 py-1.5 transition {% if nav_active == 'overview' %}bg-sidebar-accent text-sidebar-accent-foreground{% else %}text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground{% endif %}">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-80" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+          Overview
+        </a>
+        <span class="flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-muted-foreground opacity-60">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+          Settings
+        </span>
+        <a href="{{ url_usage }}" class="flex items-center gap-2 rounded-md px-2 py-1.5 transition {% if nav_active == 'usage' %}bg-sidebar-accent text-sidebar-accent-foreground{% else %}text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground{% endif %}">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-80" aria-hidden="true"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+          Usage
+        </a>
+        <span class="flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-muted-foreground opacity-60">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          Spending
+        </span>
+        <span class="flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-muted-foreground opacity-60">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+          Billing &amp; Invoices
+        </span>
+      </nav>
+      <div class="mt-auto border-t border-sidebar-border p-3">
+        <div class="flex items-center gap-2 rounded-md px-1 py-1">
+          <span class="flex size-8 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground" aria-hidden="true">
+            {% if user.is_authenticated %}{{ user.get_username|slice:":1"|upper }}{% else %}?{% endif %}
+          </span>
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-sm font-medium text-sidebar-foreground">
+              {% if user.is_authenticated %}{{ user.get_username }}{% else %}Guest{% endif %}
+            </p>
+            <c-badge variant="outline" class="mt-0.5 px-1.5 py-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Pro</c-badge>
+          </div>
+        </div>
+      </div>
+    </aside>
+    <div class="flex min-w-0 flex-1 flex-col bg-background">
+      <main class="flex-1 overflow-auto px-6 py-8 md:px-10 lg:px-12">
+        {% block main %}{% endblock %}
+      </main>
+    </div>
+  </div>
+</body>
+</html>

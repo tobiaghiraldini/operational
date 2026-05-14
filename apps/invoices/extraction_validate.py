@@ -107,11 +107,20 @@ def extraction_requires_manual_review(
     field_confidence: dict[str, float],
     validation_notes: list[str],
 ) -> bool:
+    from decimal import Decimal
+
     if base_flag:
         return True
     if validation_notes:
         return True
-    scores = [v for v in field_confidence.values() if isinstance(v, (int, float))]
+    scores = []
+    for v in field_confidence.values():
+        if isinstance(v, bool):
+            continue
+        if isinstance(v, (int, float)):
+            scores.append(float(v))
+        elif isinstance(v, Decimal):
+            scores.append(float(v))
     if not scores:
         return False
     avg = sum(scores) / len(scores)

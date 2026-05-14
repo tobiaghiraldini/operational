@@ -26,6 +26,7 @@ urlpatterns = [
     path("accounting/", include("apps.accounting.urls")),
     path("files/", include("apps.files.urls")),
     path("invoices/", include("apps.invoices.urls")),
+    path("dashboard/", include("apps.dashboard.urls")),
     path("", lambda request: render(request, "index.html")),
 ]
 

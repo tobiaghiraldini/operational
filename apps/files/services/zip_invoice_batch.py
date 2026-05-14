@@ -14,6 +14,9 @@ from django.core.files.base import ContentFile
 
 from apps.documents.folder_paths import INVOICES_BULK, get_or_create_document_folder
 from apps.documents.models import DocumentFile, DocumentFolder
+from apps.documents.services.document_file_invoice_task import (
+    mark_processing_with_task_id as document_file_mark_processing_with_task_id,
+)
 from apps.documents.storage import document_absolute_path
 from apps.invoices.tasks import process_single_invoice
 
@@ -169,6 +172,7 @@ def ingest_zip_invoice_pdfs(
                         document_file_id=doc.pk,
                         schema_name=schema_name,
                     )
+                    document_file_mark_processing_with_task_id(doc.pk, async_result.id)
                     queued.append(
                         {
                             "member": member,

@@ -464,9 +464,11 @@ def record_payment(
         amount_invoice=payment_amount,
     )
 
-    if not invoice.payment_date and invoice.payments_total >= invoice.total_amount:
-        invoice.payment_date = payment_date
-        invoice.save(update_fields=["payment_date", "updated_at"])
+    if not invoice.payment_date:
+        total = invoice._coerce_decimal(invoice.total_amount)
+        if total is not None and invoice.payments_total >= total:
+            invoice.payment_date = payment_date
+            invoice.save(update_fields=["payment_date", "updated_at"])
 
     return transaction
 

@@ -4,13 +4,21 @@ from django.db import connection
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.template.response import TemplateResponse
-from django.urls import path, reverse
+from django.urls import NoReverseMatch, path, reverse
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from django_tenants.utils import get_public_schema_name
 from django.core.exceptions import PermissionDenied
 from unfold.admin import ModelAdmin
 from apps.core.admin_mixins import TenantSchemaOnlyAdminMixin
+from apps.documents.services.celery_task_result_lookup import (
+    fetch_task_result,
+    task_result_progress_summary,
+)
 from apps.documents.forms import DocumentFileAdminForm
+from apps.documents.services.document_file_invoice_task import (
+    mark_processing_with_task_id as document_file_mark_processing_with_task_id,
+)
 from apps.documents.storage import document_absolute_path
 from .models import DocumentFolder, DocumentFile
 
@@ -123,7 +131,7 @@ class DocumentFileAdmin(TenantSchemaOnlyAdminMixin, ModelAdmin):
     form = DocumentFileAdminForm
     list_display = [
         'filename', 'folder', 'file_type', 'file_size_display',
-        'status', 'upload_date', 'processed_at'
+        'status', 'celery_queue_display', 'upload_date', 'processed_at'
     ]
     list_filter = [
         'status', 'file_type', 'folder', 'upload_date', 'processed_at'
@@ -132,12 +140,97 @@ class DocumentFileAdmin(TenantSchemaOnlyAdminMixin, ModelAdmin):
     readonly_fields = [
         'created_at', 'updated_at', 'upload_date', 'file_hash',
         'file_size', 'legacy_file_path_display',
+        'processing_task_id', 'celery_task_detail_display',
     ]
     date_hierarchy = 'upload_date'
 
     @admin.display(description="Legacy path")
     def legacy_file_path_display(self, obj):
         return obj.file_path or "—"
+
+    @admin.display(description="Celery")
+    def celery_queue_display(self, obj):
+        tid = (getattr(obj, "processing_task_id", None) or "").strip()
+        if not tid:
+            return "—"
+        tr = fetch_task_result(tid)
+        summary = task_result_progress_summary(tr)
+        if not summary["found"]:
+            return format_html(
+                '<span class="text-gray-500" title="Task id: {}">queued…</span>',
+                tid[:20],
+            )
+        st = summary.get("status") or "—"
+        pct = summary.get("percent")
+        stage = summary.get("stage") or ""
+        title = f"{st}" + (f" — {stage}" if stage else "")
+        if pct is not None:
+            return format_html(
+                '<span title="{}">{} ({}%)</span>',
+                title,
+                st,
+                pct,
+            )
+        return format_html('<span title="{}">{}</span>', title, st)
+
+    @admin.display(description="Celery task (refresh page to update)")
+    def celery_task_detail_display(self, obj):
+        tid = (getattr(obj, "processing_task_id", None) or "").strip()
+        if not tid:
+            return "No task id stored yet. Save triggers queue only when auto-process runs."
+        tr = fetch_task_result(tid)
+        summary = task_result_progress_summary(tr)
+        if not summary["found"]:
+            return format_html(
+                "<p>Task id <code>{}</code> not found in <code>django_celery_results</code> yet. "
+                "This lookup uses the <strong>public</strong> schema (not tenant permissions). "
+                "Typical causes: worker still queued, different <code>CELERY_RESULT_BACKEND</code> "
+                "on worker vs web, or the result row was never persisted. "
+                "If the document status already moved to processed/error, refresh once more or "
+                "check the worker logs for result-backend errors.</p>",
+                tid,
+            )
+        lines = [
+            format_html("<p><strong>State:</strong> {}</p>", summary.get("status")),
+        ]
+        if summary.get("percent") is not None:
+            lines.append(
+                format_html(
+                    "<p><strong>Progress:</strong> {}%</p>", summary["percent"]
+                )
+            )
+        if summary.get("stage"):
+            lines.append(
+                format_html("<p><strong>Stage:</strong> {}</p>", summary["stage"])
+            )
+        if summary.get("date_started"):
+            lines.append(
+                format_html("<p><strong>Started:</strong> {}</p>", summary["date_started"])
+            )
+        if summary.get("date_done"):
+            lines.append(
+                format_html("<p><strong>Finished:</strong> {}</p>", summary["date_done"])
+            )
+        if summary.get("worker"):
+            lines.append(
+                format_html("<p><strong>Worker:</strong> {}</p>", summary["worker"])
+            )
+        if tr is not None:
+            try:
+                url = reverse(
+                    "admin:django_celery_results_taskresult_change",
+                    args=[tr.pk],
+                )
+                lines.append(
+                    format_html('<p><a class="link" href="{}">Open task result</a></p>', url)
+                )
+            except NoReverseMatch:
+                lines.append(
+                    format_html(
+                        "<p><em>Register django_celery_results in admin to link here.</em></p>"
+                    )
+                )
+        return mark_safe("".join(lines))
 
     fieldsets = (
         ('File Information', {
@@ -157,7 +250,13 @@ class DocumentFileAdmin(TenantSchemaOnlyAdminMixin, ModelAdmin):
             ),
         }),
         ('Processing Status', {
-            'fields': ('status', 'processed_at', 'error_message')
+            'fields': (
+                'status',
+                'processed_at',
+                'error_message',
+                'processing_task_id',
+                'celery_task_detail_display',
+            )
         }),
         ('Timestamps', {
             'fields': ('upload_date', 'created_at', 'updated_at'),
@@ -179,9 +278,6 @@ class DocumentFileAdmin(TenantSchemaOnlyAdminMixin, ModelAdmin):
             else:
                 obj.filename = f"{obj.filename}_{uuid.uuid4().hex[:8]}"
             super().save_model(request, obj, form, change)
-        if obj.file:
-            obj.recompute_file_metadata()
-            obj.save(update_fields=['file_size', 'file_hash'])
 
         should_queue = (
             obj.folder.auto_process
@@ -200,13 +296,14 @@ class DocumentFileAdmin(TenantSchemaOnlyAdminMixin, ModelAdmin):
                 if connection.schema_name == get_public_schema_name()
                 else connection.schema_name
             )
-            process_single_invoice.delay(
+            ar = process_single_invoice.delay(
                 document_absolute_path(obj),
                 obj.filename,
                 user_id=getattr(request.user, "pk", None),
                 document_file_id=obj.pk,
                 schema_name=schema_name,
             )
+            document_file_mark_processing_with_task_id(obj.pk, ar.id)
     
     def file_size_display(self, obj):
         size = obj.file_size
@@ -233,16 +330,14 @@ class DocumentFileAdmin(TenantSchemaOnlyAdminMixin, ModelAdmin):
         )
         count = 0
         for file_obj in queryset:
-            if file_obj.status in ['error', 'pending']:
-                process_single_invoice.delay(
+            if file_obj.status in ['error', 'pending', 'processing']:
+                ar = process_single_invoice.delay(
                     document_absolute_path(file_obj),
                     file_obj.filename,
                     document_file_id=file_obj.pk,
                     schema_name=schema_name,
                 )
-                file_obj.status = 'pending'
-                file_obj.error_message = ''
-                file_obj.save()
+                document_file_mark_processing_with_task_id(file_obj.pk, ar.id)
                 count += 1
         self.message_user(request, f'{count} files queued for reprocessing.')
     retry_processing.short_description = 'Retry processing for selected files'

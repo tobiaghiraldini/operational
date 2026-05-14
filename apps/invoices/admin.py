@@ -15,6 +15,10 @@ from apps.money.forms.settlement_allocation_inline_formset import (
 )
 from apps.money.models import InvoiceSettlementAllocation
 
+from apps.documents.services.document_file_invoice_task import (
+    mark_processing_with_task_id as document_file_mark_processing_with_task_id,
+)
+
 from .models import Invoice, InvoiceExtraction
 
 
@@ -194,12 +198,16 @@ class InvoiceAdmin(TenantSchemaOnlyAdminMixin, ModelAdmin):
         )
         count = 0
         for invoice in queryset:
-            process_single_invoice.delay(
+            ar = process_single_invoice.delay(
                 invoice.file_path,
                 invoice.original_filename,
                 document_file_id=invoice.document_file_id,
                 schema_name=schema_name,
             )
+            if invoice.document_file_id:
+                document_file_mark_processing_with_task_id(
+                    invoice.document_file_id, ar.id
+                )
             count += 1
         self.message_user(request, f'{count} invoices queued for re-extraction.')
     retry_extraction.short_description = 'Retry extraction for selected invoices'

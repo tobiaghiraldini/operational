@@ -202,19 +202,43 @@ class Invoice(BaseModel):
     def __str__(self):
         entity_name = self.vendor.name if self.vendor else (self.customer.name if self.customer else 'Unknown')
         return f"{self.invoice_number} - {entity_name} ({self.total_amount} {self.currency})"
-    
+
+    @staticmethod
+    def _coerce_decimal(value):
+        """LLM / JSON often yields float; DB and aggregates use ``Decimal``."""
+        from decimal import Decimal, InvalidOperation
+
+        if value is None:
+            return None
+        if isinstance(value, Decimal):
+            return value
+        try:
+            return Decimal(str(value))
+        except (InvalidOperation, TypeError, ValueError):
+            return None
+
     @property
     def payments_total(self):
         """Sum of settlement allocations (`amount_invoice`) from linked transactions."""
         from decimal import Decimal
 
         agg = self.settlement_allocations.aggregate(total=models.Sum("amount_invoice"))
-        return agg["total"] or Decimal("0")
+        raw = agg["total"]
+        if raw is None:
+            return Decimal("0")
+        if isinstance(raw, Decimal):
+            return raw
+        return Decimal(str(raw))
 
     @property
     def outstanding_amount(self):
         """`total_amount - payments_total`. Negative if overpaid."""
-        return self.total_amount - self.payments_total
+        from decimal import Decimal
+
+        ta = self._coerce_decimal(self.total_amount)
+        if ta is None:
+            ta = Decimal("0")
+        return ta - self.payments_total
 
     @property
     def is_paid(self):
@@ -223,7 +247,8 @@ class Invoice(BaseModel):
         Considered paid when linked payment transactions cover the total or
         when the legacy `payment_date` field is set (kept for backward compat).
         """
-        if self.payments_total >= self.total_amount and self.total_amount > 0:
+        ta = self._coerce_decimal(self.total_amount)
+        if ta is not None and ta > 0 and self.payments_total >= ta:
             return True
         if self.paid_override:
             return True

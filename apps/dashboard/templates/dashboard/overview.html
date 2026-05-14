@@ -1,0 +1,138 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Overview{% endblock %}
+
+{% block main %}
+<div class="mx-auto max-w-6xl space-y-8">
+  <section class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight text-foreground">Getting started</h1>
+      <p class="mt-1 text-sm text-muted-foreground">Finish setup to unlock the full workspace.</p>
+    </div>
+    <div class="flex shrink-0 items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
+      <div class="relative size-10 shrink-0" aria-hidden="true">
+        <svg class="size-10 -rotate-90" viewBox="0 0 36 36">
+          <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" class="text-border" stroke-width="3"/>
+          <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" class="text-chart-1" stroke-width="3" stroke-dasharray="97.4" stroke-dashoffset="24.35" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div>
+        <p class="text-sm font-medium text-foreground">3 / 4 completed</p>
+        <p class="text-xs text-muted-foreground">Almost there</p>
+      </div>
+    </div>
+  </section>
+
+  <c-card class="border-border bg-card p-6 shadow-none">
+    <ul class="space-y-3 text-sm">
+      <li class="flex items-start gap-3 text-foreground">
+        <span class="mt-0.5 text-chart-1" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg></span>
+        Connect GitHub or GitLab
+      </li>
+      <li class="flex items-start gap-3 text-foreground">
+        <span class="mt-0.5 text-chart-1" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg></span>
+        Install Cursor on your machine
+      </li>
+      <li class="flex items-start gap-3 text-foreground">
+        <span class="mt-0.5 text-chart-1" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg></span>
+        Try Agent in the editor
+      </li>
+      <li class="flex items-start gap-3 text-muted-foreground">
+        <span class="mt-0.5 text-muted-foreground" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg></span>
+        Set up your cloud environment for agents to run in the cloud
+      </li>
+    </ul>
+    <div class="mt-6 flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <p class="text-sm text-muted-foreground">Cloud agents run in isolated sandboxes with your repo.</p>
+      <c-button variant="default" class="shrink-0 bg-primary text-primary-foreground">Set up</c-button>
+    </div>
+  </c-card>
+
+  <div class="grid gap-4 md:grid-cols-2">
+    <c-card class="border-border bg-card p-6 shadow-none">
+      <c-card.header class="space-y-1 p-0">
+        <c-card.title class="text-lg font-semibold">Pro+</c-card.title>
+        <c-card.description class="text-2xl font-semibold tracking-tight text-foreground">$48<span class="text-sm font-normal text-muted-foreground">/mo</span></c-card.description>
+      </c-card.header>
+      <c-card.footer class="mt-6 p-0">
+        <c-button variant="default" class="w-full bg-primary text-primary-foreground sm:w-auto">Upgrade to Pro+</c-button>
+      </c-card.footer>
+    </c-card>
+    <c-card class="border-border bg-card p-6 shadow-none">
+      <c-card.header class="space-y-1 p-0">
+        <c-card.title class="text-lg font-semibold">Ultra</c-card.title>
+        <c-card.description class="text-2xl font-semibold tracking-tight text-foreground">$160<span class="text-sm font-normal text-muted-foreground">/mo</span></c-card.description>
+      </c-card.header>
+      <c-card.footer class="mt-6 p-0">
+        <c-button variant="default" class="w-full bg-primary text-primary-foreground sm:w-auto">Upgrade to Ultra</c-button>
+      </c-card.footer>
+    </c-card>
+  </div>
+
+  <div class="grid gap-4 md:grid-cols-2">
+    <c-card class="border-border bg-card p-6 shadow-none">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-sm text-muted-foreground">Current plan</p>
+          <p class="mt-1 text-xl font-semibold text-foreground">Pro</p>
+          <p class="text-sm text-muted-foreground">$16/mo</p>
+        </div>
+        <c-button variant="outline" size="sm">Adjust plan</c-button>
+      </div>
+    </c-card>
+    <c-card class="border-border bg-card p-6 shadow-none">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-sm text-muted-foreground">On-demand usage this month</p>
+          <p class="mt-1 text-xl font-semibold text-foreground">$0 <span class="text-sm font-normal text-muted-foreground">/ $100</span></p>
+        </div>
+        <c-button variant="outline" size="sm">Edit limit</c-button>
+      </div>
+    </c-card>
+  </div>
+
+  <c-card class="border-border bg-card p-6 shadow-none">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <h2 class="text-3xl font-semibold tracking-tight text-foreground tabular-nums">194,640</h2>
+        <p class="text-sm text-muted-foreground">AI line edits (demo)</p>
+      </div>
+      <c-tabs default_value="all" class="w-full sm:w-auto">
+        <c-tabs.list class="inline-flex w-full sm:w-auto">
+          <c-tabs.trigger value="all">All</c-tabs.trigger>
+          <c-tabs.trigger value="tab">Tab</c-tabs.trigger>
+          <c-tabs.trigger value="agent">Agent</c-tabs.trigger>
+        </c-tabs.list>
+      </c-tabs>
+    </div>
+    <div class="mt-6 overflow-x-auto">
+      <div class="inline-grid grid-flow-col grid-rows-7 gap-1 pb-2" style="grid-auto-columns: minmax(0, 0.65rem);">
+        {% for level in heatmap_cells %}
+          <div
+            class="dashboard-heatmap-cell border-0 {% if level == 0 %}bg-muted/35{% elif level == 1 %}bg-chart-1/30{% elif level == 2 %}bg-chart-1/50{% elif level == 3 %}bg-chart-1/75{% else %}bg-chart-1{% endif %}"
+            title="Intensity {{ level }}"
+          ></div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="mt-6 grid gap-4 border-t border-border pt-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div>
+        <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Most active month</p>
+        <p class="mt-1 text-sm font-medium text-foreground">March</p>
+      </div>
+      <div>
+        <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Most active day</p>
+        <p class="mt-1 text-sm font-medium text-foreground">Wednesday</p>
+      </div>
+      <div>
+        <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Longest streak</p>
+        <p class="mt-1 text-sm font-medium text-foreground">12 days</p>
+      </div>
+      <div>
+        <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Current streak</p>
+        <p class="mt-1 text-sm font-medium text-foreground">4 days</p>
+      </div>
+    </div>
+  </c-card>
+</div>
+{% endblock %}

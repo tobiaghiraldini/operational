@@ -78,7 +78,14 @@ class DocumentFile(BaseModel):
     )
     processed_at = models.DateTimeField(null=True, blank=True, help_text="When processing completed")
     error_message = models.TextField(blank=True, help_text="Error message if processing failed")
-    
+    processing_task_id = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text="Last Celery task id for invoice extraction (see django_celery_results).",
+    )
+
     # Metadata
     file_type = models.CharField(max_length=10, default='pdf', help_text="File type/extension")
     upload_date = models.DateTimeField(auto_now_add=True, help_text="When file was first detected")
@@ -103,3 +110,47 @@ class DocumentFile(BaseModel):
             for chunk in iter(lambda: handle.read(4096), b""):
                 digest.update(chunk)
         self.file_hash = digest.hexdigest()
+
+    def _ensure_file_metadata_before_db(self) -> None:
+        """
+        Populate ``file_size`` / ``file_hash`` before the first INSERT.
+
+        Admin and forms assign an uncommitted ``FileField``; ``recompute_file_metadata``
+        only works after the file exists on disk, which is too late for a NOT NULL
+        ``file_size`` column. Prefer on-disk recomputation when possible; otherwise
+        use the in-memory upload (``FieldFile.size`` and streamed hash).
+        """
+        path = document_absolute_path(self)
+        if path and os.path.isfile(path):
+            self.recompute_file_metadata()
+            return
+
+        if not self.file:
+            return
+
+        self.file_size = self.file.size
+        digest = hashlib.sha256()
+        if self.file.closed:
+            self.file.open("rb")
+        else:
+            self.file.seek(0)
+        try:
+            for chunk in self.file.chunks():
+                digest.update(chunk)
+            self.file_hash = digest.hexdigest()
+        finally:
+            self.file.seek(0)
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get("update_fields")
+        if self.file:
+            if update_fields is None:
+                if self.file_size is None:
+                    self._ensure_file_metadata_before_db()
+            elif "file" in update_fields:
+                self._ensure_file_metadata_before_db()
+        elif self.file_size is None and update_fields is None:
+            path = document_absolute_path(self)
+            if path and os.path.isfile(path):
+                self.recompute_file_metadata()
+        super().save(*args, **kwargs)

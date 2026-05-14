@@ -16,6 +16,23 @@ import sys
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(BASE_DIR / ".env")
+except ImportError:
+    pass
+
+
+def _env_str(name: str, default: str) -> str:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    raw = raw.strip()
+    if len(raw) >= 2 and raw[0] == raw[-1] and raw[0] in ('"', "'"):
+        raw = raw[1:-1]
+    return raw
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -32,6 +49,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 SHARED_APPS = [
+    "django_cotton",
     "unfold",  # before django.contrib.admin
     "unfold.contrib.filters",
     "unfold.contrib.forms",
@@ -217,6 +235,31 @@ INVOICE_MAX_UPLOAD_BYTES = int(os.getenv("INVOICE_MAX_UPLOAD_BYTES", str(25 * 10
 INVOICE_ZIP_MAX_BYTES = int(os.getenv("INVOICE_ZIP_MAX_BYTES", str(50 * 1024 * 1024)))
 INVOICE_ZIP_MAX_FILES = int(os.getenv("INVOICE_ZIP_MAX_FILES", "200"))
 
+
+def _env_truthy(name: str, *, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in ("1", "true", "yes", "on")
+
+
+# Celery: one global broker (e.g. Redis). django-tenants schema is not chosen by
+# broker URL; ``tenant-schemas-celery`` stamps ``_schema_name`` on task headers at
+# publish time and switches ``connection`` in the worker (see operational/celery.py).
+CELERY_BROKER_URL = _env_str("CELERY_BROKER_URL", "redis://127.0.0.1:6379/0")
+CELERY_RESULT_BACKEND = _env_str("CELERY_RESULT_BACKEND", "django-db")
+CELERY_TASK_ALWAYS_EAGER = _env_truthy(
+    "CELERY_TASK_ALWAYS_EAGER",
+    default=False,
+)
+CELERY_RESULT_EXTENDED = True
+# Persist STARTED in django_celery_results as soon as a worker picks up the task
+# (otherwise the TaskResult row often appears only after SUCCESS/FAILURE).
+CELERY_TASK_TRACK_STARTED = _env_truthy(
+    "CELERY_TASK_TRACK_STARTED",
+    default=True,
+)
+
 # django-drf-filepond: temp + stored paths must live under BASE_DIR unless
 # DJANGO_DRF_FILEPOND_ALLOW_EXTERNAL_UPLOAD_DIR is True.
 FILEPOND_UPLOAD_TMP = BASE_DIR / "filepond_tmp"
@@ -241,8 +284,14 @@ REST_FRAMEWORK = {
     ],
 }
 
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434/api/generate")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
+# Ollama: ``OLLAMA_MODEL`` must match a tag from ``ollama list`` (e.g. llama3.2, llama3.2:3b).
+# If ``OLLAMA_URL`` is unset, ``OLLAMA_HOST`` (e.g. http://127.0.0.1:11434) is used to build /api/generate.
+if (os.getenv("OLLAMA_URL") or "").strip():
+    OLLAMA_URL = _env_str("OLLAMA_URL", "http://127.0.0.1:11434/api/generate")
+else:
+    _ollama_host = _env_str("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+    OLLAMA_URL = f"{_ollama_host}/api/generate"
+OLLAMA_MODEL = _env_str("OLLAMA_MODEL", "llama3.2")
 OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "120"))
 
 LOGGING = {

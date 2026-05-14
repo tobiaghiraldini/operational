@@ -50,9 +50,12 @@ def sync_invoice_payment_transaction(
     monthly bank batch) skip creating a `Transaction` until allocations are
     booked against the actual bank line.
     """
-    if not invoice.total_amount or invoice.total_amount <= 0:
+    from apps.invoices.models import Invoice
+
+    total = Invoice._coerce_decimal(invoice.total_amount)
+    if total is None or total <= 0:
         return None
-    if invoice.payments_total >= invoice.total_amount:
+    if invoice.payments_total >= total:
         return None
     if not invoice.payment_date and not getattr(invoice, "paid_override", False):
         return None
