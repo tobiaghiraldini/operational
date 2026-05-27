@@ -1,0 +1,42 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block title %}{{ workflow.name }} · Editor{% endblock %}
+
+{% block alpine_flow_assets %}
+<link rel="stylesheet" href="{% static 'js/workflow-editor/workflow-editor.css' %}">
+{% endblock %}
+
+{% block main %}
+{{ workflow_node_types|json_script:"workflow-editor-node-types" }}
+<div class="workflow-editor-layout">
+  <div class="flex shrink-0 flex-wrap items-center justify-between gap-3">
+    <div class="min-w-0">
+      <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Workflow · {{ workflow_category_label }}</p>
+      <h1 class="truncate text-xl font-semibold tracking-tight text-foreground">{{ workflow.name }}</h1>
+    </div>
+    <div class="flex items-center gap-2">
+      <a
+        href="{% url 'dashboard:workflows:list' %}"
+        class="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >Back to list</a
+      >
+    </div>
+  </div>
+  {# React Flow needs a sized parent; flex + min-h-0 alone can collapse to 0 height here. #}
+  <div
+    class="flex min-h-[min(56dvh,560px)] min-w-0 flex-1 flex-col md:min-h-[min(62dvh,640px)]"
+  >
+    <div
+      id="workflow-editor-root"
+      class="flex min-h-0 min-w-0 flex-1 flex-col"
+      data-api-url="{{ definition_api_url }}"
+    data-links-api-url="{{ links_api_url }}"
+    data-csrf-token="{{ editor_csrf_token }}"
+    data-category="{{ workflow_category }}"
+    data-primary-node-type="{{ workflow_primary_node_type }}"
+    ></div>
+  </div>
+</div>
+<script type="module" src="{% static 'js/workflow-editor/workflow-editor.js' %}"></script>
+{% endblock %}

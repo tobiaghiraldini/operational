@@ -141,7 +141,7 @@ class Migration(migrations.Migration):
                 ('reference', models.CharField(blank=True, help_text='Bank reference, document #, etc.', max_length=100)),
                 ('account', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='transactions', to='money.account')),
                 ('bank_statement_line', models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='transaction', to='money.bankstatementline')),
-                ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='created_transactions', to=settings.AUTH_USER_MODEL)),
+                ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='created_transactions', to=settings.AUTH_USER_MODEL, db_constraint=False)),
                 ('currency', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='transactions', to='money.currency')),
                 ('customer', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='transactions', to='customers.customer')),
                 ('document', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='transactions', to='documents.documentfile')),

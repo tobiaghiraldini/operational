@@ -90,7 +90,7 @@ class Migration(migrations.Migration):
                 ('usage_count', models.IntegerField(default=0, help_text='Number of times this template has been used')),
                 ('last_used_at', models.DateTimeField(blank=True, help_text='When this template was last used', null=True)),
                 ('sample_invoice', models.ForeignKey(blank=True, help_text='Reference invoice used to create this template', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='template_samples', to='invoices.invoice')),
-                ('user', models.ForeignKey(blank=True, help_text='User/company this template belongs to (for emitted invoices)', null=True, on_delete=django.db.models.deletion.CASCADE, related_name='invoice_templates', to=settings.AUTH_USER_MODEL)),
+                ('user', models.ForeignKey(blank=True, help_text='User/company this template belongs to (for emitted invoices)', null=True, on_delete=django.db.models.deletion.CASCADE, related_name='invoice_templates', to=settings.AUTH_USER_MODEL, db_constraint=False)),
                 ('vendor', models.ForeignKey(blank=True, help_text='Vendor this template belongs to (for received invoices)', null=True, on_delete=django.db.models.deletion.CASCADE, related_name='invoice_templates', to='vendors.vendor')),
             ],
             options={

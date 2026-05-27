@@ -80,7 +80,11 @@ SHARED_APPS = [
 ]
 
 TENANT_APPS = [
+    # Required in tenant schemas: GenericForeignKey (contenttypes), permissions (auth).
+    "django.contrib.contenttypes",
+    "django.contrib.auth",
     "tenant_users.permissions",
+    "apps.projects",
     "apps.services",
     "apps.dashboard",
     "apps.plans",
@@ -103,6 +107,14 @@ TENANT_APPS = [
     "django_filters",
     "django_drf_filepond",
     "apps.files",
+    "apps.workflows",
+    "apps.architecture",
+    "apps.stack",
+    "apps.issues",
+    "apps.testing",
+    "apps.operations",
+    "apps.checks",
+    "apps.solutions",
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [
@@ -112,6 +124,11 @@ INSTALLED_APPS = list(SHARED_APPS) + [
 TENANT_MODEL = "tenants.Tenant"  # app.Model
 
 TENANT_DOMAIN_MODEL = "tenants.Domain"  # app.Model
+
+# UserTenantPermissions.profile → public-schema TenantUser (no cross-schema FK).
+MIGRATION_MODULES = {
+    "permissions": "operational.permissions_migrations",
+}
 
 # django-import-export: wrap each import in a single DB transaction so a
 # partial XLS upload never leaves accounting data half-imported.

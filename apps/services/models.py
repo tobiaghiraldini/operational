@@ -2,7 +2,7 @@ from django.db import models
 
 
 class ExternalService(models.Model):
-    """Registry of external services (e.g. Stripe, SendGrid). Tenant-scoped definition of 'we use this service'."""
+    """Registry of external services (e.g. Stripe, SendGrid)."""
 
     name = models.CharField(max_length=100)
     slug = models.SlugField(max_length=100, unique=True)
@@ -21,18 +21,69 @@ class ExternalService(models.Model):
         return self.name
 
 
+class Integration(models.Model):
+    """Tenant usage of an external service, optionally scoped to a project."""
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        INACTIVE = "inactive", "Inactive"
+        PENDING = "pending", "Pending"
+
+    external_service = models.ForeignKey(
+        ExternalService,
+        on_delete=models.CASCADE,
+        related_name="integrations",
+    )
+    project = models.ForeignKey(
+        "projects.Project",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="integrations",
+    )
+    name = models.CharField(max_length=255, blank=True)
+    integration_type = models.CharField(max_length=50, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.ACTIVE,
+    )
+    config = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "services_integration"
+        ordering = ["external_service", "name"]
+        verbose_name = "Integration"
+        verbose_name_plural = "Integrations"
+
+    def __str__(self):
+        label = self.name or self.external_service.name
+        if self.project_id:
+            return f"{label} ({self.project})"
+        return label
+
+
 class ServiceCredential(models.Model):
-    """Stored credential for an external service (tenant or product scope). Tenant-scoped."""
+    """Stored credential for an external service."""
 
     external_service = models.ForeignKey(
         ExternalService,
         on_delete=models.CASCADE,
         related_name="credentials",
     )
+    project = models.ForeignKey(
+        "projects.Project",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="service_credentials",
+    )
     name = models.CharField(max_length=255)
-    # Scope: tenant-level vs product-level (product_id optional).
-    # Encrypted value in real impl; placeholder here.
     value_encrypted = models.TextField(blank=True)
+    last_rotated_at = models.DateTimeField(null=True, blank=True)
+    next_rotation_due = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

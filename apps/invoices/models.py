@@ -1,10 +1,9 @@
-from django.db import models
 from django.core.validators import MinValueValidator
-from django.contrib.auth import get_user_model
-from apps.core.models import BaseModel
-from apps.vendors.models import Vendor, PaymentMethod
+from django.db import models
 
-User = get_user_model()
+from apps.core.db.tenant_user_foreign_key import TenantUserForeignKey
+from apps.core.models import BaseModel
+from apps.vendors.models import PaymentMethod, Vendor
 
 
 class Invoice(BaseModel):
@@ -181,8 +180,7 @@ class Invoice(BaseModel):
     iban = models.CharField(max_length=34, blank=True)
     bic = models.CharField(max_length=11, blank=True)
     line_items = models.JSONField(default=list, blank=True)
-    uploaded_by = models.ForeignKey(
-        User,
+    uploaded_by = TenantUserForeignKey(
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -408,8 +406,7 @@ class InvoiceTemplate(BaseModel):
         help_text="Vendor this template belongs to (for received invoices)"
     )
     # For emitted invoices: template belongs to a user/company
-    user = models.ForeignKey(
-        User,
+    user = TenantUserForeignKey(
         on_delete=models.CASCADE,
         null=True,
         blank=True,

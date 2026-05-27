@@ -1,9 +1,9 @@
 from decimal import Decimal
 
-from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
 
+from apps.core.db.tenant_user_foreign_key import TenantUserForeignKey
 from apps.core.models import BaseModel
 
 
@@ -230,8 +230,8 @@ class Transaction(BaseModel):
     DIRECTION_IN = "in"
     DIRECTION_OUT = "out"
     DIRECTION_CHOICES = (
-        (DIRECTION_IN, "In"),
         (DIRECTION_OUT, "Out"),
+        (DIRECTION_IN, "In"),
     )
 
     date = models.DateField()
@@ -316,12 +316,32 @@ class Transaction(BaseModel):
         related_name="transaction",
     )
 
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+    created_by = TenantUserForeignKey(
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="created_transactions",
+    )
+    project = models.ForeignKey(
+        "projects.Project",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transactions",
+    )
+    product_license = models.ForeignKey(
+        "products.ProductLicense",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transactions",
+    )
+    deadline = models.ForeignKey(
+        "deadlines.Deadline",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transactions",
     )
 
     class Meta:
@@ -374,6 +394,54 @@ class Transaction(BaseModel):
     def settlement_allocation_gap(self) -> Decimal:
         """Bank line amount minus allocated settlement portions (fees/rounding)."""
         return self.amount - self.settlement_allocated_total()
+
+
+class Budget(BaseModel):
+    """Spend budget for a category, project, or period."""
+
+    class Period(models.TextChoices):
+        MONTH = "month", "Month"
+        QUARTER = "quarter", "Quarter"
+        YEAR = "year", "Year"
+
+    name = models.CharField(max_length=128)
+    category = models.ForeignKey(
+        TransactionCategory,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="budgets",
+    )
+    project = models.ForeignKey(
+        "projects.Project",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="budgets",
+    )
+    period = models.CharField(
+        max_length=20,
+        choices=Period.choices,
+        default=Period.MONTH,
+    )
+    period_start = models.DateField()
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    alert_threshold = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Optional percentage (0-100) at which to alert.",
+    )
+
+    class Meta:
+        db_table = "money_budget"
+        ordering = ["-period_start", "name"]
+        verbose_name = "Budget"
+        verbose_name_plural = "Budgets"
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.period_start})"
 
 
 class InvoiceSettlementAllocation(BaseModel):

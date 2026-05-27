@@ -1,27 +1,29 @@
-from __future__ import annotations
+from django_tenants.test.cases import FastTenantTestCase
 
-from django.contrib.auth.models import AnonymousUser
-from django.test import RequestFactory, SimpleTestCase
-
-from apps.dashboard.views import DashboardOverviewView, DashboardUsageView
+from apps.dashboard.services import project_summary_widget_data
+from apps.projects.models import Project
 
 
-class DashboardViewTemplateTests(SimpleTestCase):
-    def setUp(self):
-        self.factory = RequestFactory()
+class ProjectSummaryWidgetTests(FastTenantTestCase):
+    @classmethod
+    def setup_tenant(cls, tenant):
+        from apps.users.models import TenantUser
 
-    def test_overview_returns_200(self):
-        request = self.factory.get("/dashboard/")
-        request.user = AnonymousUser()
-        response = DashboardOverviewView.as_view()(request)
-        response.render()
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b"Getting started", response.content)
+        owner, _ = TenantUser.objects.get_or_create(
+            email="dashboard-pm-test@example.com",
+            defaults={"is_active": True},
+        )
+        tenant.name = "Dashboard PM Test"
+        tenant.slug = "dashboard-pm-test"
+        tenant.owner = owner
 
-    def test_usage_returns_200(self):
-        request = self.factory.get("/dashboard/usage/")
-        request.user = AnonymousUser()
-        response = DashboardUsageView.as_view()(request)
-        response.render()
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b"Your usage", response.content)
+    def test_empty_summary(self):
+        data = project_summary_widget_data()
+        self.assertEqual(data["total_projects"], 0)
+        self.assertEqual(data["projects"], [])
+
+    def test_includes_project_row(self):
+        Project.objects.create(name="App", slug="app", status=Project.Status.LIVE)
+        data = project_summary_widget_data()
+        self.assertEqual(data["total_projects"], 1)
+        self.assertEqual(data["projects"][0]["name"], "App")

@@ -11,6 +11,9 @@
     "watch:css": "npx @tailwindcss/cli -i ./static/css/tailwind.input.css -o ./static/css/home.css --watch",
     "build:dashboard:css": "npx @tailwindcss/cli -i ./static/css/dashboard.input.css -o ./static/css/dashboard.css --minify",
     "watch:dashboard:css": "npx @tailwindcss/cli -i ./static/css/dashboard.input.css -o ./static/css/dashboard.css --watch",
+    "build:workflow-editor": "npm --prefix frontend/workflow-editor ci && npm --prefix frontend/workflow-editor run build",
+    "watch:workflow-editor": "npm --prefix frontend/workflow-editor run dev",
+    "vendor:alpine-flow": "mkdir -p static/vendor/alpine-flow/0.3.1 && cp node_modules/@copyfactory/alpine-flow/dist/flow.css node_modules/@copyfactory/alpine-flow/dist/alpine-flow.cdn.min.js static/vendor/alpine-flow/0.3.1/",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -26,6 +29,7 @@
   },
   "homepage": "https://github.com/tobiaghiraldini/operational#readme",
   "devDependencies": {
+    "@copyfactory/alpine-flow": "^0.3.1",
     "@tailwindcss/cli": "^4.2.4",
     "autoprefixer": "^10.5.0",
     "postcss": "^8.5.10",

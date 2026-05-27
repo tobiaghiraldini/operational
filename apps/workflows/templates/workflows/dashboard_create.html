@@ -1,0 +1,38 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}New workflow{% endblock %}
+
+{% block main %}
+<div class="mx-auto max-w-lg space-y-6">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight text-foreground">New workflow</h1>
+    <p class="mt-1 text-sm text-muted-foreground">Choose a category so the canvas can use the right node cards as we add them. You can edit the graph after saving.</p>
+  </div>
+  <form method="post" class="space-y-4 rounded-lg border border-border bg-card p-6 shadow-none">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">{{ form.non_field_errors }}</div>
+    {% endif %}
+    <div class="space-y-1.5">
+      <label for="id_name" class="text-sm font-medium text-foreground">Name</label>
+      {{ form.name }}
+      {% if form.name.errors %}<p class="text-xs text-destructive">{{ form.name.errors.0 }}</p>{% endif %}
+    </div>
+    <div class="space-y-1.5">
+      <label for="id_category" class="text-sm font-medium text-foreground">Category</label>
+      {{ form.category }}
+      <p class="text-xs text-muted-foreground">Drives which node card types appear on the canvas (extensible per category).</p>
+      {% if form.category.errors %}<p class="text-xs text-destructive">{{ form.category.errors.0 }}</p>{% endif %}
+    </div>
+    <div class="space-y-1.5">
+      <label for="id_description" class="text-sm font-medium text-foreground">Description <span class="font-normal text-muted-foreground">(optional)</span></label>
+      {{ form.description }}
+      {% if form.description.errors %}<p class="text-xs text-destructive">{{ form.description.errors.0 }}</p>{% endif %}
+    </div>
+    <div class="flex flex-wrap items-center gap-3 pt-2">
+      <button type="submit" class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90">Create and open canvas</button>
+      <a href="{% url 'dashboard:workflows:list' %}" class="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

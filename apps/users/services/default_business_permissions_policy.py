@@ -26,6 +26,15 @@ class DefaultBusinessPermissionsPolicy:
         "documents",
         "invoices",
         "organizations",
+        "workflows",
+        "projects",
+        "issues",
+        "architecture",
+        "stack",
+        "testing",
+        "operations",
+        "checks",
+        "solutions",
     )
 
     def grant(self, *, tenant_perms, is_staff: bool, is_superuser: bool) -> int:

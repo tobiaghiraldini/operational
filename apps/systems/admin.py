@@ -5,6 +5,8 @@ from .models import System
 
 @admin.register(System)
 class SystemAdmin(ModelAdmin):
-    list_display = ("name", "system_type", "environment", "created_at")
+    list_display = ("name", "slug", "system_type", "environment", "owner")
     list_filter = ("system_type", "environment")
-    search_fields = ("name", "description")
+    search_fields = ("name", "slug", "description")
+    prepopulated_fields = {"slug": ("name",)}
+    filter_horizontal = ("topics", "depends_on")

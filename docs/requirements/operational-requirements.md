@@ -92,9 +92,13 @@ Plans are made of milestones, and maybe of other things
 
 set your goal with dates, details, tasks and other info
 
-### Products - projects or other types of products that can be created.
+### Projects - initiatives and software the organization builds
 
-Products are made of plans, milestones, systems, and parts (and other). Their status can be live, dev, testing. they can have api keys and other sensible information that need to be traced in a safe manner, and tracked to highlight deadlines, due dates, expirations, rotations needed.
+Projects are containers for plans, milestones, systems, parts, architecture, tasks, and operational tracking. Status can be live, dev, testing. Runtime API keys and credentials attach to projects or their systems.
+
+### Products - commercial assets bought or licensed
+
+Products are vendor offerings the organization uses (e.g. Creative Tim templates, Cursor IDE, SaaS subscriptions)—not project containers. Track license/subscription type, seats, renewal dates, and costs; link to projects when a tool is used on an initiative; tie renewals to deadlines and money.
 
 ### Systems - once you create a complex system, make it worth it and reusable.
 

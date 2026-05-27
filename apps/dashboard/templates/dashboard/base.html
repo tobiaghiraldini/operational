@@ -10,6 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
   <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.10/dist/htmx.min.js" integrity="sha384-H5SrcfygHmAuTDZphMHqBJLc3FhssKjG7w/CeCpFReSfwBWDTKpkzPP8c+cLsK+V" crossorigin="anonymous"></script>
+  {% block alpine_flow_assets %}{% endblock %}
   <script defer src="https://unpkg.com/alpinejs@3.14.9/dist/cdn.min.js"></script>
 </head>
 <body class="min-h-full bg-background font-sans text-foreground">
@@ -36,6 +37,11 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-80" aria-hidden="true"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
           Usage
         </a>
+        {% url 'dashboard:workflows:list' as url_workflows %}
+        <a href="{{ url_workflows }}" class="flex items-center gap-2 rounded-md px-2 py-1.5 transition {% if nav_active == 'workflows' %}bg-sidebar-accent text-sidebar-accent-foreground{% else %}text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground{% endif %}">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-80" aria-hidden="true"><path d="M12 3v18"/><path d="M3 12h18"/><circle cx="12" cy="12" r="9"/></svg>
+          Workflows
+        </a>
         <span class="flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-muted-foreground opacity-60">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
           Spending
@@ -60,7 +66,7 @@
       </div>
     </aside>
     <div class="flex min-w-0 flex-1 flex-col bg-background">
-      <main class="flex-1 overflow-auto px-6 py-8 md:px-10 lg:px-12">
+      <main class="flex min-h-0 flex-1 flex-col overflow-auto px-6 py-8 md:px-10 lg:px-12">
         {% block main %}{% endblock %}
       </main>
     </div>

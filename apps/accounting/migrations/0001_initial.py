@@ -48,7 +48,7 @@ class Migration(migrations.Migration):
                 ('status', models.CharField(choices=[('open', 'Open'), ('closed', 'Closed'), ('locked', 'Locked')], default='open', max_length=16)),
                 ('closed_at', models.DateTimeField(blank=True, null=True)),
                 ('notes', models.TextField(blank=True)),
-                ('closed_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='closed_periods', to=settings.AUTH_USER_MODEL)),
+                ('closed_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='closed_periods', to=settings.AUTH_USER_MODEL, db_constraint=False)),
             ],
             options={
                 'verbose_name': 'Fiscal period',
@@ -68,7 +68,7 @@ class Migration(migrations.Migration):
                 ('file_name', models.CharField(blank=True, max_length=255)),
                 ('generated_at', models.DateTimeField(auto_now_add=True)),
                 ('parameters_json', models.JSONField(blank=True, default=dict)),
-                ('generated_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='accounting_exports', to=settings.AUTH_USER_MODEL)),
+                ('generated_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='accounting_exports', to=settings.AUTH_USER_MODEL, db_constraint=False)),
                 ('period', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='exports', to='accounting.fiscalperiod')),
             ],
             options={

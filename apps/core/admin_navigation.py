@@ -25,6 +25,61 @@ def _workspace_group():
                 "icon": "space_dashboard",
                 "link": reverse_lazy("admin:index"),
             },
+            {
+                "title": "Workflows",
+                "icon": "account_tree",
+                "link": reverse_lazy("admin:workflows_workflow_changelist"),
+            },
+        ],
+    }
+
+
+def _project_management_group():
+    return {
+        "title": "Project management",
+        "separator": True,
+        "collapsible": True,
+        "items": [
+            {
+                "title": "Projects",
+                "icon": "folder_special",
+                "link": reverse_lazy("admin:projects_project_changelist"),
+            },
+            {
+                "title": "Products & licenses",
+                "icon": "shopping_bag",
+                "link": reverse_lazy("admin:products_product_changelist"),
+            },
+            {
+                "title": "Systems",
+                "icon": "hub",
+                "link": reverse_lazy("admin:systems_system_changelist"),
+            },
+            {
+                "title": "Plans",
+                "icon": "event_note",
+                "link": reverse_lazy("admin:plans_plan_changelist"),
+            },
+            {
+                "title": "Tasks",
+                "icon": "task_alt",
+                "link": reverse_lazy("admin:tasks_task_changelist"),
+            },
+            {
+                "title": "Issues",
+                "icon": "bug_report",
+                "link": reverse_lazy("admin:issues_issue_changelist"),
+            },
+            {
+                "title": "Architecture",
+                "icon": "architecture",
+                "link": reverse_lazy("admin:architecture_architectureprofile_changelist"),
+            },
+            {
+                "title": "Parts & keys",
+                "icon": "key",
+                "link": reverse_lazy("admin:parts_part_changelist"),
+            },
         ],
     }
 
@@ -121,7 +176,7 @@ def _platform_group():
                 "permission": _is_public_super_admin,
             },
             {
-                "title": "Tenant permissions",
+                "title": "Public schema permissions",
                 "icon": "admin_panel_settings",
                 "link": reverse_lazy(
                     "admin:permissions_usertenantpermissions_changelist"
@@ -138,6 +193,7 @@ def get_sidebar_navigation(request):
         return [_workspace_group(), _platform_group()]
     return [
         _workspace_group(),
+        _project_management_group(),
         _accounting_finance_group(),
         _business_group(),
         _platform_group(),

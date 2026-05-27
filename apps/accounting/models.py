@@ -1,8 +1,8 @@
 from decimal import Decimal
 
-from django.conf import settings
 from django.db import models
 
+from apps.core.db.tenant_user_foreign_key import TenantUserForeignKey
 from apps.core.models import BaseModel
 
 
@@ -24,8 +24,7 @@ class FiscalPeriod(BaseModel):
         max_length=16, choices=STATUS_CHOICES, default=STATUS_OPEN
     )
     closed_at = models.DateTimeField(null=True, blank=True)
-    closed_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+    closed_by = TenantUserForeignKey(
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -101,8 +100,7 @@ class PeriodAccountBalance(BaseModel):
     is_balanced = models.BooleanField(default=False)
     last_reconciled_at = models.DateTimeField(null=True, blank=True)
     opening_confirmed_at = models.DateTimeField(null=True, blank=True)
-    opening_confirmed_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+    opening_confirmed_by = TenantUserForeignKey(
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -162,8 +160,7 @@ class AccountingExport(BaseModel):
     file_path = models.CharField(max_length=500, blank=True)
     file_name = models.CharField(max_length=255, blank=True)
     generated_at = models.DateTimeField(auto_now_add=True)
-    generated_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+    generated_by = TenantUserForeignKey(
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

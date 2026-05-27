@@ -133,3 +133,61 @@
         @apply size-2.5 rounded-[2px] border border-border/40 sm:size-3;
     }
 }
+
+/* Workflow dashboard editor: canvas needs a min height (flex chain + overflow-auto on main can collapse). */
+@layer components {
+    .workflow-editor-layout {
+        @apply flex flex-1 flex-col gap-4;
+        min-height: min(58dvh, 600px);
+    }
+
+    .workflow-flow-canvas-host {
+        min-width: 0;
+        flex: 1 1 auto;
+        min-height: min(52dvh, 520px);
+        height: min(72dvh, 720px);
+        max-height: min(88dvh, 900px);
+    }
+
+    .workflow-flow-canvas-host .flow {
+        height: 100%;
+        min-height: 100%;
+        border-radius: var(--radius-xl);
+    }
+
+    /* Softer grid than default #e5e7eb on dark */
+    .workflow-flow-canvas-host .flow__background.dots {
+        background-image: radial-gradient(
+            color-mix(in oklab, var(--muted-foreground) 14%, transparent) 0.55px,
+            transparent 0.55px
+        );
+        background-size: 22px 22px;
+    }
+
+    .dark .workflow-flow-canvas-host .flow__edge-path {
+        stroke: color-mix(in oklab, var(--muted-foreground) 45%, transparent);
+    }
+
+    .workflow-flow-canvas-host .flow__toolbar {
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        background: var(--card);
+        box-shadow: 0 1px 2px color-mix(in oklab, var(--foreground) 8%, transparent);
+    }
+
+    .workflow-flow-canvas-host .flow__toolbar__button {
+        background: var(--secondary);
+        color: var(--foreground);
+        border-right-color: var(--border);
+    }
+
+    .workflow-flow-canvas-host .flow__toolbar__button:hover {
+        background: var(--muted);
+    }
+
+    .workflow-rf-canvas .react-flow {
+        width: 100%;
+        height: 100%;
+        min-height: min(52dvh, 520px);
+    }
+}

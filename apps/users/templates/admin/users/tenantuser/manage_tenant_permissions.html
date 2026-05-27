@@ -1,0 +1,105 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'admin/css/widgets.css' %}">
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<script src="{% url 'admin:jsi18n' %}"></script>
+{{ media }}
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+  &rsaquo; <a href="{% url 'admin:users_tenantuser_changelist' %}">{% translate 'Tenant users' %}</a>
+  &rsaquo; <a href="{% url 'admin:users_tenantuser_change' original.pk %}">{{ original.email }}</a>
+  &rsaquo; {% translate 'Tenant permissions' %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl">
+  <h1 class="text-xl font-semibold mb-2">{{ title }}</h1>
+  <p class="mb-4 text-sm opacity-80">
+    Permissions are stored in the <strong>tenant schema</strong>, not on public
+    <code>UserTenantPermissions</code> rows. Changes here apply when the user
+    logs into that tenant's admin.
+  </p>
+
+  <form method="get" class="mb-6">
+    <fieldset class="module aligned">
+      <div class="form-row">
+        <label for="id_tenant_id">{% translate "Tenant" %}:</label>
+        <select name="tenant_id" id="id_tenant_id">
+          <option value="">---------</option>
+          {% for t in form.fields.tenant.queryset %}
+          <option value="{{ t.pk }}" {% if tenant and tenant.pk == t.pk %}selected{% endif %}>
+            {{ t.name }} ({{ t.schema_name }})
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </fieldset>
+    <div class="submit-row">
+      <input type="submit" value="{% translate 'Load tenant permissions' %}" class="default" />
+    </div>
+  </form>
+
+  {% if tenant and tenant_row %}
+  <div class="module">
+    <h2>{% blocktranslate with name=tenant.name schema=tenant.schema_name %}Tenant: {{ name }} ({{ schema }}){% endblocktranslate %}</h2>
+    <p>
+      <strong>is_staff:</strong> {{ tenant_row.is_staff }} —
+      <strong>is_superuser:</strong> {{ tenant_row.is_superuser }}
+    </p>
+    <p class="text-sm opacity-80">
+      {% translate "Direct permissions" %}: {{ permission_count }} {% translate "assigned" %}
+    </p>
+  </div>
+
+  <form method="post" class="mt-4" id="tenant-permissions-form">
+    {% csrf_token %}
+    <input type="hidden" name="tenant_id" value="{{ tenant.pk }}" />
+
+    <fieldset class="module aligned">
+      <h2>{% translate "Actions" %}</h2>
+      <div class="submit-row flex gap-2 flex-wrap">
+        <input type="submit" name="action" value="apply_defaults" class="default" />
+        <input type="submit" name="action" value="clear_permissions" />
+      </div>
+      <p class="help text-sm">
+        {% translate "Apply defaults grants all business-app permissions from the default policy. Clear removes direct model permissions (staff flag unchanged)." %}
+      </p>
+    </fieldset>
+
+    <fieldset class="module aligned mt-4">
+      <h2>{% translate "Model permissions (tenant schema)" %}</h2>
+      <p class="help text-sm mb-2">
+        {% translate "Use the arrows to move permissions between available and chosen. Save replaces the full chosen list." %}
+      </p>
+      <div class="form-row field-permissions">
+        {{ permissions_form.permissions.errors }}
+        <div>
+          <label for="{{ permissions_form.permissions.id_for_label }}" class="required">
+            {{ permissions_form.permissions.label }}:
+          </label>
+          {{ permissions_form.permissions }}
+          {% if permissions_form.permissions.help_text %}
+          <p class="help">{{ permissions_form.permissions.help_text }}</p>
+          {% endif %}
+        </div>
+      </div>
+      <div class="submit-row mt-2">
+        <input type="submit" name="action" value="save_permissions" class="default" />
+      </div>
+    </fieldset>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

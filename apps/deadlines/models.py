@@ -1,8 +1,10 @@
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.db import models
 
 
 class Deadline(models.Model):
-    """Deadline: due date for payments, milestones, expiring parts, etc. Tenant-scoped."""
+    """Deadline: due date for payments, milestones, expiring or rotatable assets."""
 
     class DeadlineType(models.TextChoices):
         PAYMENT = "payment", "Payment"
@@ -10,8 +12,10 @@ class Deadline(models.Model):
         RENEWAL = "renewal", "Renewal"
         COMPLIANCE = "compliance", "Compliance"
         EXPIRING_TOKEN = "expiring_token", "Expiring token/account"
+        ROTATION_DUE = "rotation_due", "Rotation due"
         PRODUCT_MILESTONE = "product_milestone", "Product milestone"
         PLAN_MILESTONE = "plan_milestone", "Plan milestone"
+        PROJECT_MILESTONE = "project_milestone", "Project milestone"
         OTHER = "other", "Other"
 
     class Status(models.TextChoices):
@@ -37,6 +41,21 @@ class Deadline(models.Model):
         choices=Status.choices,
         default=Status.PENDING,
     )
+    project = models.ForeignKey(
+        "projects.Project",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="deadlines",
+    )
+    content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
+    object_id = models.PositiveIntegerField(null=True, blank=True)
+    related_object = GenericForeignKey("content_type", "object_id")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

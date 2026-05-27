@@ -1,12 +1,12 @@
 from django.db import models
-from django.conf import settings
+
+from apps.core.db.tenant_user_foreign_key import TenantUserForeignKey
 
 
 class DashboardWidget(models.Model):
     """User-chosen widget on the dashboard. Tenant-scoped (user belongs to tenant)."""
 
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+    user = TenantUserForeignKey(
         on_delete=models.CASCADE,
         related_name="dashboard_widgets",
     )
