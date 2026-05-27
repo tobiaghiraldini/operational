@@ -17,11 +17,11 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=%h/Code/Ninjabit/Operational/operational
 Environment=DJANGO_SETTINGS_MODULE=operational.settings
-Environment=PATH=%h/Code/Ninjabit/Operational/.venv/bin:/usr/local/bin:/usr/bin
+Environment=PATH=%h/.pyenv/versions/operational_venv/bin:/usr/local/bin:/usr/bin
 EnvironmentFile=-%h/Code/Ninjabit/Operational/operational/.env
 
 RuntimeDirectory=operational-celery-beat
-ExecStart=%h/Code/Ninjabit/Operational/.venv/bin/celery \
+ExecStart=%h/.pyenv/versions/operational_venv/bin/celery \
     -A operational beat \
     --loglevel=info \
     --schedule=%t/operational-celery-beat/celerybeat-schedule \

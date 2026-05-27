@@ -21,10 +21,10 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=%h/Code/Ninjabit/Operational/operational
 Environment=DJANGO_SETTINGS_MODULE=operational.settings
-Environment=PATH=%h/Code/Ninjabit/Operational/.venv/bin:/usr/local/bin:/usr/bin
+Environment=PATH=%h/.pyenv/versions/operational_venv/bin:/usr/local/bin:/usr/bin
 EnvironmentFile=-%h/Code/Ninjabit/Operational/operational/.env
 
-ExecStart=%h/Code/Ninjabit/Operational/.venv/bin/gunicorn \
+ExecStart=%h/.pyenv/versions/operational_venv/bin/gunicorn \
     -c deploy/gunicorn/gunicorn.conf.py \
     operational.wsgi:application
 
