@@ -25,7 +25,7 @@ media/
 !/media/mapper.json
 !/media/Sales.csv
 .env*
-
+!.env.example
 celerybeat-schedule*
 /dump.rdb
 /static/dist/*
