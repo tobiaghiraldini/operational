@@ -34,16 +34,34 @@ def _env_str(name: str, default: str) -> str:
     return raw
 
 
+def _env_truthy(name: str, *, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in ("1", "true", "yes", "on")
+
+
+def _env_list(name: str, *, default: str = "") -> list[str]:
+    raw = os.getenv(name, default)
+    if not raw.strip():
+        return []
+    return [part.strip() for part in raw.split(",") if part.strip()]
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
+# Override via operational/.env (loaded by python-dotenv above).
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-dn^p14h8f08i0!+tr^a74sn-n@-y(am2qhmy2@x01y@!w$g^u!'
+SECRET_KEY = _env_str(
+    "SECRET_KEY",
+    "django-insecure-dn^p14h8f08i0!+tr^a74sn-n@-y(am2qhmy2@x01y@!w$g^u!",
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = _env_truthy("DEBUG", default=True)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = _env_list("ALLOWED_HOSTS")
 
 
 # Application definition
@@ -180,16 +198,15 @@ WSGI_APPLICATION = 'operational.wsgi.application'
 #     }
 # }
 
-## Tenants aware database settings
+## Tenants aware database settings (see deploy/postgres/create_operational_db.sh)
 DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",
-        "NAME": "operational",
-        "USER": "tobia",
-        "PASSWORD": "",
-        "HOST": "localhost",
-        "PORT": "5432",
-        # ..
+        "NAME": _env_str("OPERATIONAL_DB_NAME", "operational"),
+        "USER": _env_str("OPERATIONAL_DB_USER", "tobia"),
+        "PASSWORD": _env_str("OPERATIONAL_DB_PASSWORD", ""),
+        "HOST": _env_str("OPERATIONAL_DB_HOST", "localhost"),
+        "PORT": _env_str("OPERATIONAL_DB_PORT", "5432"),
     }
 }
 
@@ -202,7 +219,7 @@ AUTHENTICATION_BACKENDS = (
     "django.contrib.auth.backends.ModelBackend",
 )
 
-TENANT_USERS_DOMAIN = os.getenv("TENANT_USERS_DOMAIN", "localhost")
+TENANT_USERS_DOMAIN = _env_str("TENANT_USERS_DOMAIN", "localhost")
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -244,6 +261,8 @@ STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
 
+STATIC_ROOT = BASE_DIR / _env_str("STATIC_ROOT", "staticfiles")
+
 MEDIA_ROOT = BASE_DIR / "media"
 MEDIA_URL = "/media/"
 
@@ -251,13 +270,6 @@ MEDIA_URL = "/media/"
 INVOICE_MAX_UPLOAD_BYTES = int(os.getenv("INVOICE_MAX_UPLOAD_BYTES", str(25 * 1024 * 1024)))
 INVOICE_ZIP_MAX_BYTES = int(os.getenv("INVOICE_ZIP_MAX_BYTES", str(50 * 1024 * 1024)))
 INVOICE_ZIP_MAX_FILES = int(os.getenv("INVOICE_ZIP_MAX_FILES", "200"))
-
-
-def _env_truthy(name: str, *, default: bool) -> bool:
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    return raw.strip().lower() in ("1", "true", "yes", "on")
 
 
 # Celery: one global broker (e.g. Redis). django-tenants schema is not chosen by

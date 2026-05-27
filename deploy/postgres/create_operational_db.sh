@@ -117,15 +117,12 @@ SQL
 log "Done. Add the following to operational/.env on the server:"
 cat <<ENV
 
-# PostgreSQL (Operational / django-tenants)
-DATABASE_URL=postgres://${DB_USER}:${OPERATIONAL_DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
-
-# Or explicit Django settings:
-# DB_NAME=${DB_NAME}
-# DB_USER=${DB_USER}
-# DB_PASSWORD=${OPERATIONAL_DB_PASSWORD}
-# DB_HOST=${DB_HOST}
-# DB_PORT=${DB_PORT}
+# PostgreSQL (django-tenants) — read by operational/settings.py via dotenv
+OPERATIONAL_DB_NAME=${DB_NAME}
+OPERATIONAL_DB_USER=${DB_USER}
+OPERATIONAL_DB_PASSWORD=${OPERATIONAL_DB_PASSWORD}
+OPERATIONAL_DB_HOST=${DB_HOST}
+OPERATIONAL_DB_PORT=${DB_PORT}
 
 ENV
 
