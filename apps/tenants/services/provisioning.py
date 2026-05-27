@@ -16,6 +16,18 @@ class TenantProvisioningResult:
     owner_email: str
 
 
+def ensure_public_tenant_domain(domain_url: str, *, is_primary: bool = True):
+    """Map ``domain_url`` to the public tenant (create row if missing)."""
+    from apps.tenants.models import Domain, Tenant
+
+    tenant = Tenant.objects.get(schema_name="public")
+    domain, _created = Domain.objects.update_or_create(
+        domain=domain_url,
+        defaults={"tenant": tenant, "is_primary": is_primary},
+    )
+    return domain
+
+
 def bootstrap_public_tenant(domain_url: str, owner_email: str) -> TenantProvisioningResult:
     """
     Ensure the public tenant exists and is owned by the given user email.
@@ -32,7 +44,7 @@ def bootstrap_public_tenant(domain_url: str, owner_email: str) -> TenantProvisio
         from apps.tenants.models import Tenant
 
         tenant = Tenant.objects.get(schema_name="public")
-        domain = tenant.domains.filter(is_primary=True).first() or tenant.domains.first()
+        domain = ensure_public_tenant_domain(domain_url)
         owner = tenant.owner
     return TenantProvisioningResult(
         tenant_schema=tenant.schema_name,
