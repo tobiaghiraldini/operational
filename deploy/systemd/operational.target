@@ -1,0 +1,12 @@
+# User target: start Gunicorn + Celery worker + Beat together
+#
+#   cp deploy/systemd/*.service deploy/systemd/operational.target ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now operational.target
+
+[Unit]
+Description=Operational application stack
+Wants=operational-gunicorn.service operational-celery-worker.service operational-celery-beat.service
+
+[Install]
+WantedBy=default.target

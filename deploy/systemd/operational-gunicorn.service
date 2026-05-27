@@ -1,0 +1,41 @@
+# User service: Gunicorn (Django WSGI)
+#
+# Install:
+#   mkdir -p ~/.config/systemd/user
+#   cp deploy/systemd/operational-gunicorn.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now operational-gunicorn.service
+#
+# Run at boot without login:
+#   loginctl enable-linger "$USER"
+#
+# Edit Environment= paths below if your checkout or venv differs.
+
+[Unit]
+Description=Operational Django (Gunicorn)
+Documentation=https://docs.gunicorn.org/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Code/Ninjabit/Operational/operational
+Environment=DJANGO_SETTINGS_MODULE=operational.settings
+Environment=PATH=%h/Code/Ninjabit/Operational/.venv/bin:/usr/local/bin:/usr/bin
+EnvironmentFile=-%h/Code/Ninjabit/Operational/operational/.env
+
+ExecStart=%h/Code/Ninjabit/Operational/.venv/bin/gunicorn \
+    -c deploy/gunicorn/gunicorn.conf.py \
+    operational.wsgi:application
+
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=operational-gunicorn
+
+[Install]
+WantedBy=default.target

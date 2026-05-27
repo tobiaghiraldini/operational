@@ -1,0 +1,39 @@
+# User service: Celery Beat (periodic / scheduled tasks)
+#
+# Install:
+#   cp deploy/systemd/operational-celery-beat.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now operational-celery-beat.service
+#
+# Only one Beat instance per environment. Define schedules in Django settings (CELERY_BEAT_SCHEDULE).
+
+[Unit]
+Description=Operational Celery Beat scheduler
+Documentation=https://docs.celeryq.dev/en/stable/userguide/periodic-tasks.html
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Code/Ninjabit/Operational/operational
+Environment=DJANGO_SETTINGS_MODULE=operational.settings
+Environment=PATH=%h/Code/Ninjabit/Operational/.venv/bin:/usr/local/bin:/usr/bin
+EnvironmentFile=-%h/Code/Ninjabit/Operational/operational/.env
+
+RuntimeDirectory=operational-celery-beat
+ExecStart=%h/Code/Ninjabit/Operational/.venv/bin/celery \
+    -A operational beat \
+    --loglevel=info \
+    --schedule=%t/operational-celery-beat/celerybeat-schedule \
+    --pidfile=%t/operational-celery-beat/celerybeat.pid
+
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=30
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=operational-celery-beat
+
+[Install]
+WantedBy=default.target
