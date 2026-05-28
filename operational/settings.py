@@ -263,7 +263,7 @@ STATICFILES_DIRS = [
 
 STATIC_ROOT = BASE_DIR / _env_str("STATIC_ROOT", "staticfiles")
 
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_ROOT = BASE_DIR / _env_str("MEDIA_ROOT", "media")
 MEDIA_URL = "/media/"
 
 # Invoice uploads (single PDF via FilePond, ZIP batch)
