@@ -14,8 +14,8 @@
 set -euo pipefail
 
 DOMAIN="${DOMAIN:-operational.cloud}"
-NGINX_SITE_CONF="${NGINX_SITE_CONF:-/etc/nginx/sites-available/operational.conf}"
-NGINX_SITE_ENABLED="${NGINX_SITE_ENABLED:-/etc/nginx/sites-enabled/operational.conf}"
+NGINX_SITE_CONF="${NGINX_SITE_CONF:-/etc/nginx/sites-available/operational.cloud}"
+NGINX_SITE_ENABLED="${NGINX_SITE_ENABLED:-/etc/nginx/sites-enabled/operational.cloud}"
 LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-}"
 LETSENCRYPT_NO_EMAIL="${LETSENCRYPT_NO_EMAIL:-0}"
 

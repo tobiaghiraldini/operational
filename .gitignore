@@ -29,4 +29,5 @@ media/
 celerybeat-schedule*
 /dump.rdb
 /static/dist/*
+/staticfiles/*
 **/__pycache__/
