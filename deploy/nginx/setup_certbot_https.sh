@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Install Certbot (if needed) and enable HTTPS for operational.cloud on Nginx.
+# Install Certbot (if needed) and issue certificates for Operational.
 #
 # Usage:
 #   LETSENCRYPT_EMAIL=admin@operational.cloud ./deploy/nginx/setup_certbot_https.sh
 #
 # Optional environment variables:
-#   DOMAIN=operational.cloud
+#   BASE_DOMAIN=operational.cloud
+#   CERT_MODE=apex      # default: HTTP challenge via nginx, cert for base domain only
+#   CERT_MODE=wildcard  # DNS challenge, cert for base + *.base
 #   NGINX_SITE_CONF=/etc/nginx/sites-available/operational.conf
 #   NGINX_SITE_ENABLED=/etc/nginx/sites-enabled/operational.conf
 #   LETSENCRYPT_EMAIL=admin@operational.cloud
@@ -13,9 +15,10 @@
 
 set -euo pipefail
 
-DOMAIN="${DOMAIN:-operational.cloud}"
-NGINX_SITE_CONF="${NGINX_SITE_CONF:-/etc/nginx/sites-available/operational.cloud}"
-NGINX_SITE_ENABLED="${NGINX_SITE_ENABLED:-/etc/nginx/sites-enabled/operational.cloud}"
+BASE_DOMAIN="${BASE_DOMAIN:-operational.cloud}"
+CERT_MODE="${CERT_MODE:-apex}"
+NGINX_SITE_CONF="${NGINX_SITE_CONF:-/etc/nginx/sites-available/operational.conf}"
+NGINX_SITE_ENABLED="${NGINX_SITE_ENABLED:-/etc/nginx/sites-enabled/operational.conf}"
 LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-}"
 LETSENCRYPT_NO_EMAIL="${LETSENCRYPT_NO_EMAIL:-0}"
 
@@ -83,43 +86,93 @@ ensure_nginx_ready() {
   run_sudo systemctl reload nginx
 }
 
-request_certificate() {
+request_certificate_apex() {
   if [[ "$LETSENCRYPT_NO_EMAIL" == "1" ]]; then
-    log "Requesting certificate without email (not recommended)."
+    log "Requesting apex certificate without email (not recommended)."
     run_sudo certbot --nginx \
       --non-interactive \
       --agree-tos \
       --register-unsafely-without-email \
       --redirect \
       --keep-until-expiring \
-      -d "$DOMAIN"
+      -d "$BASE_DOMAIN"
     return 0
   fi
 
   [[ -n "$LETSENCRYPT_EMAIL" ]] || die "set LETSENCRYPT_EMAIL (or LETSENCRYPT_NO_EMAIL=1)"
 
-  log "Requesting certificate for $DOMAIN with email $LETSENCRYPT_EMAIL"
+  log "Requesting apex certificate for $BASE_DOMAIN with email $LETSENCRYPT_EMAIL"
   run_sudo certbot --nginx \
     --non-interactive \
     --agree-tos \
     --email "$LETSENCRYPT_EMAIL" \
     --redirect \
     --keep-until-expiring \
-    -d "$DOMAIN"
+    -d "$BASE_DOMAIN"
+}
+
+request_certificate_wildcard() {
+  log "Wildcard mode selected for *.${BASE_DOMAIN}"
+  log "Wildcard certificates require DNS challenge (HTTP challenge is not allowed)."
+  log "You will be prompted to add TXT records in DNS for _acme-challenge.${BASE_DOMAIN}."
+
+  if [[ "$LETSENCRYPT_NO_EMAIL" == "1" ]]; then
+    run_sudo certbot certonly \
+      --manual \
+      --preferred-challenges dns \
+      --agree-tos \
+      --register-unsafely-without-email \
+      --cert-name "$BASE_DOMAIN" \
+      -d "$BASE_DOMAIN" \
+      -d "*.${BASE_DOMAIN}"
+    return 0
+  fi
+
+  [[ -n "$LETSENCRYPT_EMAIL" ]] || die "set LETSENCRYPT_EMAIL (or LETSENCRYPT_NO_EMAIL=1)"
+
+  run_sudo certbot certonly \
+    --manual \
+    --preferred-challenges dns \
+    --agree-tos \
+    --email "$LETSENCRYPT_EMAIL" \
+    --cert-name "$BASE_DOMAIN" \
+    -d "$BASE_DOMAIN" \
+    -d "*.${BASE_DOMAIN}"
+}
+
+request_certificate() {
+  case "$CERT_MODE" in
+    apex)
+      request_certificate_apex
+      ;;
+    wildcard)
+      request_certificate_wildcard
+      ;;
+    *)
+      die "invalid CERT_MODE=$CERT_MODE (expected: apex|wildcard)"
+      ;;
+  esac
 }
 
 show_renewal_status() {
+  if [[ "$CERT_MODE" == "wildcard" ]]; then
+    log "Skipping certbot renew --dry-run in wildcard/manual mode."
+    log "Set up a DNS plugin or manual renewal runbook before expiry."
+    return 0
+  fi
   log "Checking renewal with dry-run"
   run_sudo certbot renew --dry-run || log "Dry-run renewal failed; check certbot/nginx logs"
 }
 
 main() {
-  log "Preparing HTTPS for domain: $DOMAIN"
+  log "Preparing HTTPS for base domain: $BASE_DOMAIN (mode: $CERT_MODE)"
   ensure_certbot_installed
   ensure_nginx_ready
   request_certificate
+  run_sudo nginx -t
+  run_sudo systemctl reload nginx
   show_renewal_status
-  log "Done. HTTPS should now be active for $DOMAIN"
+  log "Done. HTTPS should now be active for $BASE_DOMAIN"
 }
 
 main "$@"
